@@ -173,9 +173,9 @@ python scripts\sfx.py --settings                    # the defaults in effect
 spectrogram. Exit codes: 0 done, 1 no server / server error, 2 bad arguments, 3 every take was
 rejected.
 
-**Your own defaults.** On the page, **Save as my defaults** stores the panel's settings (engine,
-N, seed, fps, reverb, steps, negative prompt, raw, scores, caption) in `config.local.json`
-(local, gitignored); **Reset to built-in** deletes it. Both ask first. Saved settings apply to
+**Your own defaults.** On the page, under Advanced, **Make these my defaults** stores the settings
+(engine, takes, seed, fps, reverb, steps, avoid-words, raw wording, scoring) in `config.local.json`
+(local, gitignored); **Restore original defaults** deletes it. Both ask first. Saved settings apply to
 the page and to every API/CLI request that leaves a setting out; the repo's defaults stay in
 `server/app.py` (`REPO_DEFAULTS`). `sfx.py --settings` shows what's in effect.
 

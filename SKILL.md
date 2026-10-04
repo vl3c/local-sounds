@@ -264,7 +264,9 @@ done or need the GPU:
 cmd //c "$(cygpath -w ~/.claude/skills/local-sounds/stop.cmd)"
 ```
 
-The page at http://127.0.0.1:8191/ does everything the CLI does, for the user.
+The page at http://127.0.0.1:8191/ is for the user: generate and compare takes by ear, adjust timing,
+and a **mixer** (Add to mix on takes, then position and volume sliders per layer, instant preview,
+Export mix). Point them to it when they want to audition or hand-place layers themselves.
 
 ## Troubleshooting
 
