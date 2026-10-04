@@ -1,0 +1,85 @@
+{
+  "_comment": [
+    "Weight manifest. Each repo is pinned to a Hugging Face revision; scripts/download_models.py",
+    "fetches only the files listed in `files` (glob patterns) into models/<name> (gitignored), and",
+    "models.lock.json pins every file's size and SHA256. Weights are NOT redistributed by this repo:",
+    "see LICENSE-MODELS.md."
+  ],
+  "repos": [
+    {
+      "name": "sa3-small-sfx",
+      "repo": "stabilityai/stable-audio-3-small-sfx",
+      "revision": "ae12755283df9d62ca39a9b050a39a0b607b8c20",
+      "role": "engine: Stable Audio 3 Small-SFX (44.1 kHz stereo, 8 steps)",
+      "licence": "Stability AI Community License (+ Gemma Terms for T5Gemma)",
+      "gated": true,
+      "gb": 3.49,
+      "files": [
+        "model.safetensors",
+        "model_config.json",
+        "t5gemma-b-b-ul2/*",
+        "LICENSE.md",
+        "LICENSE_GEMMA.md",
+        "NOTICE"
+      ]
+    },
+    {
+      "name": "moss-sfx-v2",
+      "repo": "OpenMOSS-Team/MOSS-SoundEffect-v2.0",
+      "revision": "e35df4d82fbe87fcd5d14e5d100e349c0c3c076d",
+      "role": "engine: MOSS-SoundEffect v2.0 (48 kHz mono, up to 30 s)",
+      "licence": "Apache-2.0",
+      "gb": 11.3,
+      "files": [
+        "model_index.json",
+        "transformer/*",
+        "text_encoder/*",
+        "vae/*",
+        "tokenizer/*",
+        "scheduler/*"
+      ]
+    },
+    {
+      "name": "clap",
+      "repo": "laion/larger_clap_general",
+      "revision": "ada0c23a36c4e8582805bb38fec3905903f18b41",
+      "role": "check: CLAP text-audio similarity",
+      "licence": "Apache-2.0",
+      "gb": 0.78,
+      "files": [
+        "*.json",
+        "*.txt",
+        "pytorch_model.bin"
+      ]
+    },
+    {
+      "name": "aesthetics",
+      "repo": "facebook/audiobox-aesthetics",
+      "revision": "9b1dd8e5df9af7216e836a98974fe3b82c56ded6",
+      "role": "check: Meta Audiobox Aesthetics (production quality, artefacts)",
+      "licence": "CC-BY-4.0",
+      "gb": 0.42,
+      "files": [
+        "config.json",
+        "model.safetensors"
+      ]
+    },
+    {
+      "name": "captioner",
+      "repo": "mispeech/midashenglm-0.6b-fp32",
+      "revision": "3969e451d1c62618089c1135fe4c58ed33af2457",
+      "role": "optional: MiDashengLM 0.6B audio captioner (describes what a take actually contains)",
+      "licence": "Apache-2.0",
+      "gb": 2.77,
+      "optional": true,
+      "files": [
+        "*.json",
+        "*.py",
+        "*.txt",
+        "*.model",
+        "*.safetensors",
+        "*.jinja"
+      ]
+    }
+  ]
+}

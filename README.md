@@ -1,0 +1,311 @@
+# local-sounds
+
+A private, fully local **sound-effects generator for animation**, built for AI agents (and
+people) to call. Ask for one sound and a length; get back clean, checked, frame-ready WAVs:
+the hit exactly on a frame, loops that loop, round-robin variations, layers, and names a
+sound library would use (`METLImpt_SwordHit_v01.wav`).
+
+It runs two open-weight text-to-audio models on your own GPU, **Stable Audio 3 Small-SFX**
+and **MOSS-SoundEffect v2.0**, makes several takes per request, and judges each one
+automatically, the SFX equivalent of a Whisper check: signal checks, a CLAP prompt-match
+score, Meta's Audiobox Aesthetics quality score, and a spectrogram with frame gridlines. No
+accounts, no cloud: prompts and audio never leave the machine. Sound effects only, not
+music or speech.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\install.ps1   # ~20 GB download, ~35 GB on disk
+.\start.cmd                                              # opens http://127.0.0.1:8191/
+python scripts\sfx.py "sword hit on a shield" --out D:\anim\sfx
+```
+
+## For AI agents (Claude Code skill)
+
+`SKILL.md` is a Claude Code skill: how to start, check and stop the server, prompt recipes per
+category, how to read the scores and the spectrogram, and how to deliver to a folder. `install.ps1`
+links the repo into your personal skills folder (a junction, so it follows the repo):
+
+```powershell
+New-Item -ItemType Junction -Path "$env:USERPROFILE\.claude\skills\local-sounds" -Target (Resolve-Path .).Path
+```
+
+Then ask Claude Code for a sound ("a cartoon boing on frame 12, 24 fps, into D:\anim\sfx").
+Any other agent can use the CLI (`scripts/sfx.py`, standard library only) or the HTTP API below.
+
+## How it works
+
+1. **Prompt.** A terse request ("sword hit") is detected as a category and rewritten the way
+   these models were trained: one sound event, source and material, action, envelope, "close-mic,
+   dry, no reverb" (`sfx/prompts.py`; `--raw` sends your text as is). A default negative prompt
+   ("low quality, distorted, music, speech, voice, reverb, background noise") goes to the engine
+   that uses one.
+2. **Generate best-of-N.** N takes (default 4) on consecutive seeds, a little longer than asked
+   (0.75 s more for one-shots, ~2x for loops), so there is room to trim and loop.
+3. **Check every take** (`sfx/checks.py`, `sfx/scoring.py`): the signal checks on the model's raw
+   output (where clipping, DC and truncation come from), the scores, true peak and loudness on the
+   finished file:
+   - signal: clipping, true peak, DC offset, silence or too little sound, noise floor, onset
+     position, a cut-off tail, stereo correlation; a sound the `--duration` cap cut while still
+     loud; loops: the seam.
+   - CLAP (`laion/larger_clap_general`): the prompt's softmax against distractor captions (music,
+     speech, silence, white noise, static, and near misses for the category), plus the raw
+     cosine similarity. For ranking only, never as an absolute threshold.
+   - Audiobox Aesthetics: production quality (PQ) as the noise / artefact gate (one-shots under 4 are
+     rejected; for ambiences it only warns, since it reads rain and wind as noise).
+   - a waveform + spectrogram PNG with frame gridlines and an onset marker.
+   - optionally (`--caption`) an audio captioner, MiDashengLM 0.6B, which says what was actually
+     generated. It is loaded only when asked and freed straight afterwards.
+4. **Rank** (`rank_score`: CLAP match and quality combined, minus warnings), reject the failures,
+   return them all with their seeds, so the agent can ask for "more like #3".
+5. **Post-process for animation** (`sfx/post.py`; pedalboard, soxr, pyloudnorm, scipy):
+   - one-shots: trimmed to a 3 ms pre-roll (1 ms fade-in) so the transient lands at t = 0, an
+     exponential fade-out, folded to mono, peak-normalised to **-1 dBTP**, padded to whole frames.
+     `--align-frame F --fps 24` puts the hit exactly on frame F (48 kHz: 2000 samples a frame at
+     24 fps, 1600 at 30, 800 at 60).
+   - loops: cut from ~2x the length where the sound is steady, with the file starting on a zero
+     crossing; an equal-power crossfade of the tail into the head makes the end continue
+     exactly into the start; the seam is then checked; length is a whole number of frames.
+   - ambiences and loops: stereo, **-23 LUFS** with a -1 dBTP ceiling (limited if needed).
+   - variations: a round-robin set `_v01.._v05` (v01 the take, the rest +-0.8 semitone
+     tape-speed and +-2 dB EQ changes, each re-trimmed and re-normalised).
+   - layering: takes mixed with per-layer gain and transient offset (ms or frames), through a
+     limiter; loops layered in loop mode are wrapped so the mix still loops.
+   - reverb: dry by default; `room` or `hall` optionally.
+6. **Deliver**: 48 kHz 24-bit PCM WAV (not FLAC: After Effects can't import it) with the prompt,
+   seed, model and scores in the RIFF INFO chunk, plus a JSON sidecar, named the UCS way:
+   `CatID_FXName_vNN.wav` with real [UCS v8.2](https://universalcategorysystem.com) CatIDs
+   (UCS has no IMPACTS category: a metal impact is `METLImpt`).
+
+### Engines
+
+Each engine has its own venv and runs as a child process of the server (`server/workers/`),
+because their dependencies clash: Stable Audio 3 pins torch 2.7 and transformers 5, MOSS
+torch 2.9 (2.9.1 here) and transformers 4.57. All three venvs use CUDA 12.8 wheels, the oldest
+that support RTX 50-series (Blackwell, sm_120) cards.
+
+| | sa3: Stable Audio 3 Small-SFX | moss: MOSS-SoundEffect v2.0 |
+|---|---|---|
+| Released | May 2026 | May 2026 |
+| Size | 433M DiT + T5Gemma encoder, 3.3 GB download | 1.3B DiT + Qwen3-1.7B encoder + DAC, 10.5 GB |
+| Speed (RTX 5080, warm) | ~0.5 s a take (8 steps) | ~13 s a take (100 steps over a 30 s window) |
+| VRAM | ~2.5 GB | ~7.5 GB, ~10 GB peak |
+| Output | 44.1 kHz stereo, up to 120 s | 48 kHz mono, up to 30 s |
+| Negative prompt, CFG | ignored by this post-trained checkpoint (Stability's docs) | used (CFG 4) |
+| Audio-to-audio ("more like") | yes | no |
+| Licence | Stability AI Community License (gated) | Apache-2.0 |
+
+**The bake-off** (`scripts/bakeoff.py`): 22 animation-style prompts (impacts on metal, wood,
+glass and stone; a punch; whooshes; UI blips; footsteps on gravel, wood and snow; a cartoon boing
+and pop; magic; sci-fi machines; creatures; an explosion; two ambience loops), 3 seeds each on
+both engines, scored by the automatic checks, then a blind A/B page
+(http://127.0.0.1:8191/bakeoff/) to pick by ear. sa3 won by ear, 9 to 4: see "Bake-off results" below.
+
+## Requirements
+
+| | |
+|---|---|
+| OS | Windows 10 / 11 |
+| GPU | NVIDIA with 16 GB for both engines at once (~14 GB peak); SA3 alone needs ~4 GB with the checkers. RTX 50-series supported (CUDA 12.8 wheels) |
+| Disk | ~35 GB (weights ~15 GB, three venvs ~17 GB) plus pip cache |
+| Software | Python 3.12+ (3.13 by default, via the `py` launcher), Git |
+| Hugging Face | Stable Audio 3 is gated: accept its licence at [stabilityai/stable-audio-3-small-sfx](https://huggingface.co/stabilityai/stable-audio-3-small-sfx) and run `hf auth login` yourself before installing |
+
+## Install
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\install.ps1
+```
+
+It clones the two engines' inference code at pinned commits into `engine\`, builds `.venv\`
+(server and checks), `.venv-sa3\` and `.venv-moss\` with CUDA 12.8 PyTorch builds (a
+constraints file stops any requirement from swapping them for a CPU build), downloads the
+weights into `models\`, and links the skill. Re-running is safe: finished steps are skipped
+and downloads resume.
+
+**Weights are pinned:** `models.json` fixes each repo to a revision, and `models.lock.json`
+records every file's size and SHA256, so an upstream re-upload fails loudly. Files you already
+have are reused instead of downloaded, from another install (`-ReuseModels <its models folder>`)
+or from your Hugging Face cache, hard-linked when on the same drive.
+
+| Model | Size | Role | Licence |
+|---|---|---|---|
+| [Stable Audio 3 Small-SFX](https://huggingface.co/stabilityai/stable-audio-3-small-sfx) | 3.3 GB | engine | Stability AI Community License |
+| [MOSS-SoundEffect v2.0](https://huggingface.co/OpenMOSS-Team/MOSS-SoundEffect-v2.0) | 10.5 GB | engine | Apache-2.0 |
+| [CLAP larger_clap_general](https://huggingface.co/laion/larger_clap_general) | 0.74 GB | prompt-match score | Apache-2.0 |
+| [Audiobox Aesthetics](https://huggingface.co/facebook/audiobox-aesthetics) | 0.40 GB | quality score | CC-BY-4.0 |
+| [MiDashengLM 0.6B](https://huggingface.co/mispeech/midashenglm-0.6b-fp32) (optional, `-WithCaptioner`) | 2.8 GB | captioner | Apache-2.0 |
+
+Options: `-WithCaptioner`, `-ReuseModels <path>`, `-SkipModels`, `-NoSkillLink`,
+`-PythonVersion 3.12`, `-NoPipCache`. (`-CudaIndex` exists, but cu128 is what was tested; SA3's
+torch 2.7.1 has no wheels for newer CUDA indexes.) Verify the weights at any time
+without downloading anything: `.venv\Scripts\python.exe scripts\download_models.py --verify`.
+
+## Using it
+
+**`.\start.cmd`** starts the server in its own console window titled "local-sounds server -
+close this window to stop it" and returns at once; the page opens when it's ready (SA3 and the
+checkers load in ~30 s). `start.cmd --no-browser` is what agents use; `--here` runs it in the
+current console, for scripts that manage the process; `--engines sa3,moss` loads both engines
+at start (otherwise the second loads on its first request, ~75 s for MOSS). Closing the
+window, or **`.\stop.cmd`**, stops it and its engine workers and frees the GPU; `stop.cmd`
+reports the VRAM in use afterwards. A second start while one runs exits at once ("port in use").
+
+**The server's log.** The window shows milestones, one line per request and any errors; the
+full output (library notices, progress bars) goes to `logs\server.log`, timestamped. Each start
+keeps the previous run as `logs\server.previous.log`.
+
+### Command line (what agents use)
+
+```powershell
+python scripts\sfx.py "sword hit on a shield" --duration 1.2 --out D:\anim\sfx
+python scripts\sfx.py "door slam" --align-frame 36 --fps 24 --out D:\anim\sfx
+python scripts\sfx.py "rain on a tin roof" --loop --duration 8 --out D:\anim\sfx
+python scripts\sfx.py "footstep on gravel" --variations 5 --out D:\anim\sfx
+python scripts\sfx.py "laser zap" --like 20261004-142803-c6ab:13              # more like that take
+python scripts\sfx.py --post 20261004-142803-c6ab --align-frame 40             # re-process only
+python scripts\sfx.py --variations 5 --take 20261004-142803-c6ab:13 --out D:\anim\sfx   # round-robins of a take
+python scripts\sfx.py --layer 20261004-142803-c6ab:13 --layer 20261004-143001-9f2e:5,gain=-6,offset=2f --out D:\anim\sfx
+python scripts\sfx.py "sword hit" --json                                       # machine-readable
+python scripts\sfx.py --show-prompt "sword hit"     # the prompt, negative and file name, nothing generated
+python scripts\sfx.py --settings                    # the defaults in effect
+```
+
+`SKILL.md` has the full flag table, what every score and warning means, and how to read the
+spectrogram. Exit codes: 0 done, 1 no server / server error, 2 bad arguments, 3 every take was
+rejected.
+
+**Your own defaults.** On the page, **Save as my defaults** stores the panel's settings (engine,
+N, seed, fps, reverb, steps, negative prompt, raw, scores, caption) in `config.local.json`
+(local, gitignored); **Reset to built-in** deletes it. Both ask first. Saved settings apply to
+the page and to every API/CLI request that leaves a setting out; the repo's defaults stay in
+`server/app.py` (`REPO_DEFAULTS`). `sfx.py --settings` shows what's in effect.
+
+### The page
+
+http://127.0.0.1:8191/: type a sound (Ctrl+Enter generates), see the prompt it becomes as you
+type, pick engine, category, mode, duration, N, seed, fps, hit frame, reverb, steps and negative
+prompt. Each ranked take shows its scores, warnings, a player and its spectrogram (click to
+enlarge), with **WAV**, **More like this**, **Use seed**, **Variations**, **Caption** and a
+**layer** tick for mixing. **Re-process** re-runs trimming, alignment, mode, loudness and reverb
+on every take of a request from the raw audio, without regenerating. **Recent** reopens earlier
+requests. Hover over any control for 1 s for an explanation.
+
+### HTTP API (127.0.0.1:8191)
+
+| Endpoint | Body | Returns |
+|---|---|---|
+| `POST /api/generate` | `{"text", "duration"?, "n"?, "seed"?, "seeds"?, "engine"?, "category"?, "mode"?, "raw"?, "negative"?, "steps"?, "cfg"?, "window"?, "like"?, "like_strength"?, "fps"?, "align_frame"?, "preroll_ms"?, "reverb"?, "channels"?, "crossfade_s"?, "check"?, "caption"?, "name"?, "cat_id"?}` | the request: id, prompt, negative, engine, and `takes` ranked, each with `ref`, `seed`, `rank`, `rank_score`, `clap`, `clap_cos`, `aes`, `signal`, `post`, `final`, `fails`, `warnings`, `rejected`, `files` and `paths` |
+| `POST /api/post` | `{"take", ...post-processing fields}` (`"align_frame": null` removes an alignment) | the request, every take re-processed from its raw audio (not for layered mixes: re-make those) |
+| `POST /api/variations` | `{"take", "n"?, "amount"?}` | the take with `variations` |
+| `POST /api/layer` | `{"layers": [{"take", "gain_db"?, "offset_ms"? or "offset_frames"?}], "fps"?, "mode"?, "align_frame"?}` | a new request with the mix (fps defaults to the saved one) |
+| `POST /api/caption` | `{"takes": [...]}` | what the captioner hears in each |
+| `GET /api/prompt?text=` | | the prompt, negative, category, file name and CLAP distractors |
+| `GET /api/requests`, `GET` / `DELETE /api/requests/<id>` | | recent requests; one request; delete its files |
+| `GET /api/categories`, `/api/engines`, `/api/health` | | recipes; engines; status and VRAM |
+| `POST /api/engines/<name>/stop` | | stop one engine's worker (frees its VRAM) |
+| `GET` / `POST` / `DELETE /api/settings` | the settings to save | `effective`, `saved`, `repo`; save / reset `config.local.json` |
+| `GET /files/<id>/<name>` | | a WAV, PNG or JSON from a request |
+
+A take ref is `"<request id>:<seed>"`. Bad input is a 4xx with a message. In `/api/generate`, an
+explicit `null` means "use the default", except `"seed": null`, which means a random seed. Requests must use Host
+`127.0.0.1` or `localhost`, and writes from other web origins are refused.
+
+### Requests and files
+
+Every generation is a *request* with an id like `20261004-142803-c6ab`, in `output\<id>\`:
+
+| File | What |
+|---|---|
+| `request.json` | the request, the prompt actually sent, and every take's checks and scores |
+| `<seed>_raw.wav` | the engine's output as generated (float WAV, 44.1 or 48 kHz) |
+| `<seed>.wav` | the delivered sound, 48 kHz 24-bit, INFO chunk included |
+| `<seed>.png` | waveform + spectrogram with frame grid and onset marker |
+| `<seed>_v01.wav`... | round-robin variations |
+
+Besides requests, `output\` holds the bake-off (`output\bakeoff\`) and, while the server runs,
+`.server.pid` and `.server.lock`: clear the rest any time. Delivered copies (`--out`) are yours.
+
+## Bake-off results
+
+October 2026, RTX 5080: 22 prompts, seeds 11-13 on both engines (132 takes), then a blind A/B
+vote by ear on each prompt's best take per engine.
+
+| | sa3 (Stable Audio 3 Small-SFX) | moss (MOSS-SoundEffect v2.0) |
+|---|---|---|
+| **Votes by ear** | **9 wins** (sword clash, crate drop, glass shatter, character zoom, UI error, wood footstep, sci-fi door, small creature, forest ambience) | 4 wins (rock fall, cartoon boing, magic spell, explosion) |
+| Ties / neither | 8 both good, 1 neither (gravel footstep) | |
+| Mean CLAP cos (all takes) | 0.378 | 0.315 |
+| Mean Audiobox PQ | 6.70 | 6.77 |
+| Rejected takes | 2 of 66 | 3 of 66 |
+| Time per take | 0.3 s | 13.3 s |
+
+**Default: sa3**, picked by ear and 40x faster; moss stays selectable (`--engine moss`), and is
+worth a try for big, weighty sounds (rocks, explosions) and magic. The automatic scores preferred
+moss on several impacts that the ear gave to sa3: CLAP ranks takes of one prompt, it doesn't pick
+engines. Rerun it with `scripts/bakeoff.py`; the page is at http://127.0.0.1:8191/bakeoff/.
+
+## Notes and gotchas
+
+- **Stable Audio 3 Small-SFX and fractional lengths.** Some fractional durations (0.5, 1.25,
+  2.2, 2.25 s...) make it output full-scale clipped static; every whole second from 1 to 30
+  tested clean. The worker always asks for whole seconds and post-processing trims.
+- **SA3 ignores negative prompts and CFG** in the post-trained small-sfx checkpoint (only the
+  `-base` checkpoints use them). The negative prompt still goes to MOSS.
+- **MOSS loads its DiT in fp32**; the worker casts it to bf16, which halves both the time per
+  take (27.8 s -> ~13 s) and the peak memory (14.9 GB -> 9.6 GB) with no audible change
+  (it runs under bf16 autocast anyway). Takes are made one at a time: batches overflowed 16 GB.
+- **MOSS always denoises a 30 s window** (as trained) and crops; `--window` shrinks it a little
+  faster, but quieter or cut-off takes became more likely.
+- **No seamless loops from SA3 itself** (upstream issue #109): loop mode handles it.
+- **torch.compile is off** for MOSS (`TORCHDYNAMO_DISABLE=1`): Triton isn't reliable on Windows.
+- **CLAP is a rough proxy.** It ranks takes of the same prompt well enough; across prompts the
+  numbers aren't comparable, and a good-sounding take can score low. Look, listen, decide.
+
+## Privacy
+
+The server binds to 127.0.0.1 only (hard-coded) and forces Hugging Face offline, so after
+installation nothing contacts the network; there is no telemetry. `output\` holds every request
+(gitignored); delete it whenever you like.
+
+## Before pushing
+
+```powershell
+python scripts\check_repo_safe.py            # what git would publish
+python scripts\check_repo_safe.py --history  # and every past commit
+```
+
+It fails on weights, audio, images, large files, local paths, emails, IP addresses and
+credential-shaped strings. It can't judge prose, so read your own diff too.
+
+## Tests
+
+```powershell
+.venv\Scripts\python.exe -m pytest tests -q
+```
+
+Post-processing (frames, alignment, loops, loudness, variations, layers), the signal checks,
+WAV/INFO writing, prompts and names, settings, request handling and the HTTP guards. No models
+are loaded.
+
+## Licensing
+
+This repo's code is MIT. The weights keep their own licences: Stable Audio 3 under the Stability
+AI Community License, MOSS-SoundEffect under Apache-2.0; see [LICENSE-MODELS.md](LICENSE-MODELS.md).
+
+## Repo layout
+
+```
+install.ps1 / start.cmd / stop.cmd     setup, launch, shutdown
+models.json, models.lock.json          pinned, checksummed weight manifest
+requirements*.txt                      the three venvs' dependencies
+server/app.py, server/page.html        the loopback server and its page
+server/workers/                        one worker per engine (own venv), and their protocol
+server/serverlog.py                    clean console, full log file
+sfx/                                   post-processing, checks, scores, plots, prompts, names
+scripts/sfx.py                         CLI (standard library only)
+scripts/bakeoff.py                     the engine bake-off and its A/B page
+scripts/download_models.py             resumable, verifying downloader
+scripts/check_repo_safe.py             pre-publish scan
+tests/                                 pytest
+SKILL.md                               the Claude Code skill
+engine/, models/, .venv*/, output/, logs/   created at install / run time, gitignored
+```

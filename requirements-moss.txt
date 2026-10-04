@@ -1,0 +1,16 @@
+# The MOSS-SoundEffect venv (.venv-moss). install.ps1 installs torch 2.9.1 + torchaudio from
+# the cu128 index first, then the package with --no-deps from engine/MOSS-TTS (its metadata
+# pins torch 2.9.0 and numpy 1.26, which has no Python 3.13 wheels), then this list.
+# Gradio, imageio, torchvision and torchcodec are only for its demo and fine-tuning: skipped.
+einops==0.8.2
+numpy==2.5.3
+pillow==12.3.0
+tqdm==4.70.1
+safetensors==0.7.0
+transformers==4.57.1
+diffusers==0.37.1
+ftfy==6.3.1
+regex==2026.9.29
+soundfile==0.14.0
+descript-audiotools==0.7.2   # the DAC autoencoder's classes
+huggingface_hub==0.36.2

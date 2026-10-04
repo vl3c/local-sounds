@@ -1,0 +1,13 @@
+# The Stable Audio 3 venv (.venv-sa3). install.ps1 installs torch 2.7.1 + torchaudio from
+# the cu128 index first (the library pins torch==2.7.1, and on Windows its own resolver
+# would pick a CPU build), then the library itself with --no-deps from engine/stable-audio-3,
+# then this list: the library's other dependencies.
+einops==0.8.2
+einops-exts==0.0.4
+numpy==2.5.3
+packaging==26.3
+safetensors==0.8.0
+tqdm==4.70.1
+huggingface_hub==1.33.0
+transformers==5.18.0
+soundfile==0.14.0
