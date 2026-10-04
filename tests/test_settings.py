@@ -306,3 +306,27 @@ def test_a_failure_after_generation_leaves_no_half_made_request(app, monkeypatch
     with pytest.raises(HTTPException):
         app.generate(app.GenReq(text="sword hit", n=1, check=False))
     assert [p for p in app.OUTPUT.iterdir() if p.is_dir()] == []
+
+
+def test_a_stack_of_one_requests_takes_is_scored_and_compared(app, monkeypatch):
+    make_request(app, seeds=(1, 2, 3))
+    rec = app.load_request(RID)
+    for t, sc in zip(rec["takes"], (0.8, 0.6, 0.5)):
+        t["rank_score"], t["clap_cos"], t["clap"], t["aes"] = sc, 0.4, 0.9, {"PQ": 7.0}
+    app.save_request(rec)
+
+    class FakeClap:
+        def score(self, audios, sr, prompt, distractors):
+            return [{"clap": 0.7, "clap_cos": 0.3, "clap_top": None} for _ in audios]
+
+    class FakeAes:
+        def score(self, audios, sr):
+            return [{"PQ": 6.5, "PC": 2, "CE": 4, "CU": 7} for _ in audios]
+    monkeypatch.setattr(app, "clap", lambda: FakeClap())
+    monkeypatch.setattr(app, "aes", lambda: FakeAes())
+    mix = app.make_layer(app.LayerReq(layers=[app.LayerItem(take=f"{RID}:{s}") for s in (1, 2, 3)], check=True))
+    assert mix["stack"] is True and mix["name"] == "SwordHitStack" and mix["text"] == "sword hit"
+    t = mix["takes"][0]
+    assert t["clap_cos"] == 0.3 and t["aes"]["PQ"] == 6.5 and t["rank_score"] > 0
+    assert mix["compare"]["best_layer"] == 0.8 and mix["compare"]["best_layer_take"] == f"{RID}:1"
+    assert [ly["PQ"] for ly in mix["layers"]] == [7.0, 7.0, 7.0]

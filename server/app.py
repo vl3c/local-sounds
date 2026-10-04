@@ -549,7 +549,8 @@ def take_view(rec: dict, take: dict) -> dict:
 
 def request_view(rec: dict) -> dict:
     keep = ("id", "created", "text", "prompt", "negative", "raw", "category", "cat_id", "name", "engine", "model",
-            "seeds", "steps", "cfg", "window", "like", "post", "gen_length_s", "gen_s", "score_s", "warnings")
+            "seeds", "steps", "cfg", "window", "like", "post", "gen_length_s", "gen_s", "score_s", "warnings",
+            "kind", "stack", "layers", "compare")
     out = {k: rec[k] for k in keep if k in rec}
     out["takes"] = [take_view(rec, t) for t in rec["takes"]]
     out["kept"] = sum(not t.get("rejected") for t in rec["takes"])
@@ -779,12 +780,20 @@ class LayerReq(BaseModel):
     align_frame: int | None = Field(None, ge=0, le=100000)
     name: str | None = Field(None, max_length=40, pattern=r"^[A-Za-z0-9]*$")
     cat_id: str | None = Field(None, max_length=12, pattern=r"^[A-Za-z0-9]*$")
+    check: bool | None = None  # score the mix like a take (default: the saved setting)
 
 
 @app.post("/api/layer")
 def make_layer(req: LayerReq):
-    """Mix delivered takes, each with its own gain and transient offset, through a limiter."""
+    """Mix delivered takes, each with its own gain and transient offset, through a limiter.
+
+    Layers can be different sounds (a thud + a clang) or several takes of the same request
+    (a "stack": fuller, more natural groups, crowds and textures). The mix is checked and
+    scored like a take, and each source take's own scores come back alongside (`layers`), so
+    a caller that can't listen can still see whether the mix beats its best single take.
+    """
     fps = req.fps or effective_settings()["fps"]
+    check = req.check if req.check is not None else effective_settings()["check"]
     layers, metas = [], []
     for item in req.layers:
         rid, seed = parse_take(item.take)
@@ -793,7 +802,9 @@ def make_layer(req: LayerReq):
         y, _ = audio.read(req_dir(rid) / t["wav"])
         off = (item.offset_frames / fps) if item.offset_frames is not None else (item.offset_ms or 0) / 1000
         layers.append(post.Layer(audio=y, gain_db=item.gain_db, offset_s=off, onset_s=t["post"].get("onset_s", 0.0),
-                                 meta={"take": item.take, "name": f"{rec['cat_id']}_{rec['name']}"}))
+                                 meta={"take": item.take, "name": f"{rec['cat_id']}_{rec['name']}",
+                                       "clap_cos": t.get("clap_cos"), "clap": t.get("clap"),
+                                       "PQ": (t.get("aes") or {}).get("PQ"), "rank_score": t.get("rank_score")}))
         metas.append(rec)
     try:
         opts = post.PostOpts(mode=req.mode, fps=fps, align_frame=req.align_frame)
@@ -805,20 +816,25 @@ def make_layer(req: LayerReq):
         d = OUTPUT / rid
         d.mkdir(parents=True)
         first = metas[0]
-        rec = {"id": rid, "kind": "layer", "created": time.strftime("%Y-%m-%d %H:%M:%S"),
-               "text": " + ".join(m["text"] for m in metas), "prompt": " + ".join(m["prompt"] for m in metas),
+        stack = len({m["id"] for m in metas}) == 1  # every layer is a take of the same request
+        uniq = list(dict.fromkeys(m["id"] for m in metas))
+        by_id = {m["id"]: m for m in metas}
+        rec = {"id": rid, "kind": "layer", "stack": stack, "created": time.strftime("%Y-%m-%d %H:%M:%S"),
+               "text": first["text"] if stack else " + ".join(by_id[i]["text"] for i in uniq),
+               "prompt": first["prompt"] if stack else " + ".join(by_id[i]["prompt"] for i in uniq),
                "category": first["category"], "cat_id": req.cat_id or first["cat_id"],
-               "name": req.name or (first["name"] + "Layered")[:40], "engine": "layer", "model": "layer",
-               "post": opts.asdict(), "layers": rep["layers"], "takes": []}
+               "name": req.name or (first["name"] + ("Stack" if stack else "Layered"))[:40], "engine": "layer",
+               "model": "layer", "post": opts.asdict(), "layers": rep["layers"], "takes": []}
         take = {"seed": 0, "raw": "0.wav", "wav": "0.wav", "png": "0.png", "post": {k: v for k, v in rep.items()
                                                                                    if k != "layers"},
-                "signal": checks.signal_report(mix, audio.SR, req.mode), "rank": 1}
-        take["fails"], take["warnings"] = list(take["signal"]["fails"]), list(take["signal"]["warnings"])
-        if req.mode == "loop" and not rep.get("seam_ok", True):
-            take["warnings"].append("the loop seam may be audible (see seam_* numbers)")
-        take["rejected"], take["rank_score"] = bool(take["fails"]), 0.0
+                "signal": checks.signal_report(mix, audio.SR, req.mode)}
         rec["takes"] = [take]
-        audio.write_wav(d / "0.wav", mix, info=_info(rec, take))
+        # The same checks and scores as any take (and the WAV written with its INFO chunk).
+        judge(rec, [take], [mix], check)
+        best = max((ly for ly in rec["layers"] if ly.get("rank_score") is not None),
+                   key=lambda ly: ly["rank_score"], default=None)
+        if best and take.get("rank_score") is not None and "clap_cos" in take:
+            rec["compare"] = {"mix": take["rank_score"], "best_layer": best["rank_score"], "best_layer_take": best["take"]}
         plot.draw(mix, audio.SR, d / "0.png", title=f"{rec['cat_id']}_{rec['name']}  |  {rec['text'][:110]}",
                   fps=fps, onset_s=rep["onset_s"] if req.mode == "oneshot" else None,
                   align_frame=req.align_frame, seam=req.mode == "loop")

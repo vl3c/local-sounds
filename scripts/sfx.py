@@ -10,6 +10,7 @@ The server must be running (start.cmd). Everything stays on 127.0.0.1.
     python scripts/sfx.py "laser zap" --like 20261004-120000-ab12:1234      # more like that take
     python scripts/sfx.py --post 20261004-120000-ab12 --align-frame 6       # re-process, no regeneration
     python scripts/sfx.py --layer A:1 --layer B:7,gain=-6,offset=2f --out D:/anim/sfx
+    python scripts/sfx.py "a flock of seagulls" --stack 4 --out D:/anim/sfx  # 4 takes in one, richer
     python scripts/sfx.py --show-prompt "sword hit"                        # what the model would get
 
 A take is '<request id>:<seed>' (the CLI prints it as `ref`). Delivered files get UCS-style
@@ -209,6 +210,39 @@ def parse_layer(spec: str) -> dict:
     return item
 
 
+def stack_body(res: dict, n: int, spread_ms: float = 0.0, fps: float | None = None, name: str | None = None,
+               cat: str | None = None, check: bool | None = None) -> dict:
+    """The /api/layer request that stacks the best n kept takes of a request into one sound.
+
+    Layers are aligned on their hits (spread 0) or staggered by spread_ms each, all at the same
+    volume: the limiter and level stage of the export balance the total.
+    """
+    kept = sorted((t for t in res["takes"] if not t.get("rejected")), key=lambda t: t.get("rank", 99))
+    if len(kept) < 2:
+        raise ValueError(f"--stack needs at least 2 kept takes; this request has {len(kept)}")
+    layers = [{"take": t["ref"], "offset_ms": round(k * spread_ms, 1)} for k, t in enumerate(kept[:n])]
+    return given({"layers": layers, "mode": res.get("post", {}).get("mode", "oneshot"), "fps": fps,
+                  "name": name, "cat_id": cat, "check": check})
+
+
+def print_stack(mix: dict) -> None:
+    """How the stack compares with its best single take (the agent's only way to judge it)."""
+    t = mix["takes"][0]
+    print(f"stack of {len(mix.get('layers', []))} takes -> {mix['cat_id']}_{mix['name']}  ref {t['ref']}")
+    for ly in mix.get("layers", []):
+        sc = f"CLAP {ly['clap_cos']:.2f}" if ly.get("clap_cos") is not None else ""
+        pq = f"PQ {ly['PQ']:.1f}" if ly.get("PQ") is not None else ""
+        print(f"  layer {ly['take']}  {ly['gain_db']:+g} dB  {ly['offset_s'] * 1000:+.0f} ms  {sc}  {pq}")
+    print("  mix:   " + describe(t, mix.get("post", {}).get("fps", 24)).split("  ", 1)[1])
+    c = mix.get("compare")
+    if c:
+        print(f"  scores: stack {c['mix']:.2f}, best single take {c['best_layer']:.2f} ({c['best_layer_take']}).")
+    if not c or c["mix"] < c["best_layer"]:
+        print("  Stacks often score LOWER than their best single take (a denser sound reads as noise to the\n"
+              "  scorers) while sounding fuller: don't reject a stack on its score. Give the user both to compare.")
+    print(f"      {t['paths']['wav']}")
+
+
 def given(d: dict) -> dict:
     """Drop options left unset, so the server's (or the user's saved) defaults apply."""
     return {k: v for k, v in d.items() if v is not None}
@@ -267,6 +301,10 @@ def main() -> int:
                    "from the best take, or from --take")
     o.add_argument("--amount", type=float, help="variation strength (default 1: up to +-0.8 semitones, +-2 dB EQ)")
     o.add_argument("--take", metavar="REF", help="the take for --variations / --caption-only (REQ:SEED)")
+    o.add_argument("--stack", type=int, metavar="N", help="mix the best N kept takes of this request into one fuller "
+                   "sound (great for groups, crowds, flocks, creatures, textures); also with --post REQ")
+    o.add_argument("--spread", type=float, default=0.0, metavar="MS", help="with --stack: stagger each layer by this "
+                   "many ms (default 0: all hits together)")
     o.add_argument("--layer", action="append", metavar="SPEC", help="mix takes: REF[,gain=DB][,offset=MS|Nf], "
                    "repeat per layer; offsets place each transient relative to the first layer's")
     o.add_argument("--caption-only", action="store_true", help="caption --take (or every take of --post REQ)")
@@ -295,6 +333,10 @@ def main() -> int:
     if not any(actions):
         ap.error("give the sound to make, or --post, --layer, --take ... --variations / --caption-only, --categories, "
                  "--settings, --engines or --delete")
+    if a.stack is not None and not 2 <= a.stack <= 12:
+        ap.error("--stack takes 2 to 12 layers")
+    if a.stack and not (a.text or a.post):
+        ap.error("--stack needs the sound to make, or --post REQ for an earlier request")
     for part, flag in ((a.name, "--name"), (a.cat, "--cat")):
         if part is not None and not NAME_PART.fullmatch(part):
             ap.error(f"{flag} takes letters and digits only (UCS style, e.g. SwordHit / METLImpt)")
@@ -353,6 +395,8 @@ def main() -> int:
                 "steps": a.steps, "cfg": a.cfg, "window": a.window, "like": a.like,
                 "like_strength": a.like_strength, "caption": a.caption, "check": a.check, "name": a.name,
                 "cat_id": a.cat})}
+            if a.stack and not a.n:
+                body["n"] = max(4, a.stack + 1)  # a spare, in case a take is rejected
             if a.seeds:
                 body["seeds"] = [int(s) for s in a.seeds.split(",") if s.strip()]
             elif a.seed is not None:
@@ -362,6 +406,12 @@ def main() -> int:
         ap.error(str(exc))
 
     kept = [t for t in res["takes"] if not t.get("rejected")]
+    stack = None
+    if a.stack:
+        try:
+            stack = call("/api/layer", stack_body(res, a.stack, a.spread, a.fps, a.name, a.cat, a.check))
+        except ValueError as exc:
+            print(f"no stack: {exc}", file=sys.stderr)
     vari = None
     if a.variations:
         ref = a.take or (kept[0]["ref"] if kept else None)
@@ -372,7 +422,11 @@ def main() -> int:
 
     delivered: list[Path] = []
     if a.out:
-        if vari is not None:
+        if stack is not None:  # the stack, and the best single take to compare it with
+            delivered = deliver(stack, stack["takes"], a.out, png=a.png)
+            if kept:
+                delivered += deliver(res, kept[:1], a.out, png=a.png, name=a.name, cat=a.cat)
+        elif vari is not None:
             items = [{"file": v["file"], "_take": vari, "_extra": {"variation": v.get("variation"), "version": v["version"]}}
                      for v in vari["variations"]]
             delivered = deliver(res, items, a.out, png=False, name=a.name, cat=a.cat)
@@ -383,10 +437,12 @@ def main() -> int:
             delivered = deliver(res, pick, a.out, png=a.png, name=a.name, cat=a.cat)
 
     if a.json:
-        print(json.dumps({**res, "variations": vari, "delivered": [str(p) for p in delivered]}, indent=2,
-                         ensure_ascii=False))
+        print(json.dumps({**res, "variations": vari, "stack": stack, "delivered": [str(p) for p in delivered]},
+                         indent=2, ensure_ascii=False))
     else:
         print_request(res)
+        if stack is not None:
+            print_stack(stack)
         if vari is not None:
             print(f"variations of {vari['ref']}:")
             for v in vari["variations"]:
@@ -400,7 +456,7 @@ def main() -> int:
     try:
         if a.play:
             target = next((p for p in delivered if p.suffix == ".wav"), None) or \
-                (OUTPUT / (kept[0] if kept else res["takes"][0])["files"]["wav"])
+                (OUTPUT / (stack or {"takes": [kept[0] if kept else res["takes"][0]]})["takes"][0]["files"]["wav"])
             try:
                 sys.stdout.flush()
                 play(target)

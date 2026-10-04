@@ -69,6 +69,11 @@ Any other agent can use the CLI (`scripts/sfx.py`, standard library only) or the
      tape-speed and +-2 dB EQ changes, each re-trimmed and re-normalised).
    - layering: takes mixed with per-layer gain and transient offset (ms or frames), through a
      limiter; loops layered in loop mode are wrapped so the mix still loops.
+   - stacking (`--stack N`): the best N takes of one request mixed into one sound. Several
+     slightly different performances together sound fuller and more natural, which suits groups
+     (a flock, a pack), textures (rain, fire, swarms) and thick "big" sounds; a single crisp hit
+     just smears. Mixes are scored like takes, but stacks usually score *lower* than their best
+     single take (denser reads as noise to the scorers), so the CLI delivers both to compare by ear.
    - reverb: dry by default; `room` or `hall` optionally.
 6. **Deliver**: 48 kHz 24-bit PCM WAV (not FLAC: After Effects can't import it) with the prompt,
    seed, model and scores in the RIFF INFO chunk, plus a JSON sidecar, named the UCS way:
@@ -164,6 +169,7 @@ python scripts\sfx.py "laser zap" --like 20261004-142803-c6ab:13              # 
 python scripts\sfx.py --post 20261004-142803-c6ab --align-frame 40             # re-process only
 python scripts\sfx.py --variations 5 --take 20261004-142803-c6ab:13 --out D:\anim\sfx   # round-robins of a take
 python scripts\sfx.py --layer 20261004-142803-c6ab:13 --layer 20261004-143001-9f2e:5,gain=-6,offset=2f --out D:\anim\sfx
+python scripts\sfx.py "a group of pelicans chatting" --stack 4 --out D:\anim\sfx   # 4 takes stacked into one
 python scripts\sfx.py "sword hit" --json                                       # machine-readable
 python scripts\sfx.py --show-prompt "sword hit"     # the prompt, negative and file name, nothing generated
 python scripts\sfx.py --settings                    # the defaults in effect

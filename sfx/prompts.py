@@ -91,6 +91,18 @@ CATEGORIES: list[Category] = [
              "single futuristic machine sound, clean electronic texture, clear start and end",
              ("a car engine idling", "a vacuum cleaner", "a synthesizer melody"),
              dry=False),
+    Category("bird", "BIRDMisc", "oneshot", 2.5,
+             ("bird", "pelican", "seagull", "gull", "crow", "raven", "parrot", "duck", "goose", "owl", "eagle", "hawk",
+              "chicken", "rooster", "pigeon", "dove", "songbird", "flock", "chirp", "tweet", "squawk", "quack",
+              "honk", "caw", "coo"),
+             "natural bird calls, clear and close, no music",
+             ("music with melody and rhythm", "a person whistling", "a squeaky door hinge"),
+             negative_extra="whistling, flute"),
+    Category("animal", "ANMLMisc", "oneshot", 2.0,
+             ("dog", "bark", "cat", "meow", "purr", "horse", "neigh", "cow", "moo", "pig", "oink", "sheep", "goat",
+              "frog", "croak", "monkey", "lion", "wolf", "howl", "elephant", "bear", "whale", "seal", "herd"),
+             "natural animal vocalisation, clear and close",
+             ("a person imitating an animal", "a monster growling", "music with melody and rhythm")),
     Category("creature", "CREAMnstr", "oneshot", 2.0,
              ("creature", "monster", "growl", "roar", "snarl", "hiss", "dragon", "beast", "screech", "goblin",
               "zombie", "alien"),
@@ -116,6 +128,9 @@ BY_KEY = {c.key: c for c in CATEGORIES}
 # Always-on CLAP distractors: what a failed generation usually sounds like instead.
 GENERIC_DISTRACTORS = ("music with melody and rhythm", "a person speaking", "silence", "white noise",
                        "electronic static and digital glitches")
+
+# Several sources at once: the recipe mustn't ask for a "single" event.
+_GROUP = re.compile(r"(group|flock|herd|pack|crowd|swarm|colony|chorus|several|many|lots of|a few|dozens?|bunch)")
 
 _AMBIENCE_HINTS = ("ambience", "ambient", "ambiance", "room tone", "atmosphere", "loop", "background")
 
@@ -167,7 +182,10 @@ def build_prompt(text: str, category: str | None = None, raw: bool = False, mode
         return {**out, "prompt": text}
     parts = [text]
     if not _has(text, "attack", "decay", "continuous", "steady", "single", "tail", "swell"):
-        parts.append(cat.envelope)
+        env = cat.envelope
+        if _GROUP.search(text.lower()):  # "a group of pelicans" is several voices, not a single event
+            env = re.sub(r"^single ", "", env).replace("single ", "")
+        parts.append(env)
     if cat.dry and not _has(text, "reverb", "room", "hall", "dry", "close-mic", "distant", "echo"):
         parts.append(DRY)
     if cat.mode != "oneshot" and not _has(text, "stereo"):

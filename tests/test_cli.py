@@ -84,3 +84,16 @@ def test_no_align_sends_an_explicit_null():
         mode = duration = fps = align_frame = preroll = reverb = channels = crossfade = None
         no_align = True
     assert cli.post_fields(A()) == {"align_frame": None}
+
+
+def test_stack_body_takes_the_best_kept_takes_in_rank_order():
+    res = {"post": {"mode": "oneshot"}, "takes": [
+        {"ref": "R:3", "rank": 3}, {"ref": "R:1", "rank": 1}, {"ref": "R:9", "rank": 4, "rejected": True},
+        {"ref": "R:2", "rank": 2}]}
+    b = cli.stack_body(res, 4, spread_ms=40, fps=24)
+    assert [ly["take"] for ly in b["layers"]] == ["R:1", "R:2", "R:3"]       # the rejected take is left out
+    assert [ly["offset_ms"] for ly in b["layers"]] == [0, 40, 80]
+    assert b["mode"] == "oneshot" and b["fps"] == 24 and "gain_db" not in b["layers"][0]
+    assert [ly["offset_ms"] for ly in cli.stack_body(res, 2)["layers"]] == [0, 0]  # default: hits together
+    with pytest.raises(ValueError):
+        cli.stack_body({"takes": [{"ref": "R:1", "rank": 1}]}, 4)

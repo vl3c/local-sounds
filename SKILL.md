@@ -105,6 +105,7 @@ $PY $S "laser zap" --like 20261004-142803-c6ab:13 --out <dir>             # more
 $PY $S --post 20261004-142803-c6ab --align-frame 40                         # re-process, no regeneration
 $PY $S --post 20261004-142803-c6ab --no-align                               # hit back to t = 0
 $PY $S --variations 5 --take 20261004-142803-c6ab:13 --out <dir>             # round-robins of an earlier take
+$PY $S "a flock of seagulls squawking" --stack 4 --out <dir>               # 4 takes in one: fuller, more natural
 $PY $S --layer A:12 --layer B:7,gain=-6,offset=2f --out <dir>             # mix takes (refs from the output)
 $PY $S --show-prompt "sword hit"                                          # the prompt the model would get
 $PY $S --categories        # recipes     $PY $S --settings      # defaults in effect
@@ -129,6 +130,7 @@ server's full response (plus `delivered`): parse that rather than the text.
 | `--steps`, `--cfg`, `--window` | Engine knobs: sa3 8 steps; moss 100 steps, CFG 4, 30 s window. Rarely needed. |
 | `--like REF --like-strength X` | Audio-to-audio from a take (sa3): 0.3 close, 0.5 default, 0.8 loose. |
 | `--variations N --amount X` | Round-robin set from the best take (or `--take REF`): v01 is the take, then +-0.8 semitone speed and +-2 dB EQ changes (`--amount 2` doubles them). |
+| `--stack N [--spread MS]` | Make the sound, then mix its best N kept takes into one (all at the same volume, hits together; `--spread 40` staggers each by 40 ms). Generates at least N+1 takes. With `--out`, delivers the stack **and** the best single take. Works on an earlier request with `--post REQ --stack N`. See "Stacking" in section 5. |
 | `--layer REF[,gain=DB][,offset=MS\|Nf]` | Repeat per layer; each layer's transient lands at its offset from the first layer's; mixed through a limiter to -1 dBTP. With `--loop`, loops are wrapped to the first one's length so the mix still loops. A layered mix can't be `--post`-processed: re-make it. |
 | `--caption` / `--caption-only --take REF` | Ask the audio captioner what the take contains (optional 2.8 GB model; if it isn't downloaded you get a message saying how). |
 | `--no-check` | Skip CLAP and Audiobox (signal checks still run). |
@@ -188,10 +190,15 @@ Category recipes (`--categories`; detected from your words, forced with `--categ
 | cartoon-pop | TOONPop | oneshot | 0.5 | single cartoon pop, round and bright, instant attack, very short, close-mic... |
 | magic | MAGSpel | oneshot | 2.5 | single magical spell sound, shimmering sparkles rising, bright airy tail |
 | scifi-machine | SCIMach | oneshot | 3.0 | single futuristic machine sound, clean electronic texture, clear start and end |
+| bird | BIRDMisc | oneshot | 2.5 | natural bird calls, clear and close, no music, close-mic... |
+| animal | ANMLMisc | oneshot | 2.0 | natural animal vocalisation, clear and close, close-mic... |
 | creature | CREAMnstr | oneshot | 2.0 | single creature vocalisation, guttural and animal-like, clear start and end, close-mic... |
 | explosion | EXPLReal | oneshot | 4.0 | single powerful explosion, sudden blast, deep low-end rumble, debris tail, close-mic... |
 | ambience | AMBMisc | loop | 10 | continuous steady ambience, constant texture, no sudden events, wide stereo field recording |
 | misc | DSGNMisc | oneshot | 2.0 | single clear sound event, clean start and end, close-mic... |
+
+Words for several sources ("a group of", "a flock of", "several", "a herd of"...) drop "single" from
+the recipe, so the model is asked for a group, not one event.
 
 For a better file category than the recipe's, pass `--cat` with a UCS CatID (e.g. `AMBForst`,
 `WATRSplsh`, `DOORWood`, `ELECZap`, `SCIWeap`); UCS has no IMPACTS category, impacts go under
@@ -248,6 +255,19 @@ rotated so the seam is in the middle). What to look for:
   get them so repeats don't sound identical. Delivered as `_v01.._v05`.
 - **Layering**: build a big hit from parts (a low thud + a metal clang + debris), each
   generated separately; offsets in ms or frames (`offset=2f`).
+- **Stacking** (`--stack N`): several takes of the *same* sound mixed into one. Each take is a
+  slightly different performance, so together they sound fuller and more natural: the user found
+  4 stacked pelican takes much better than any single one. Use it for:
+  - groups and crowds of animals or creatures (a flock, a pack, birds chattering, frogs at night),
+  - textures and ambiences (rain, fire, wind, water, machinery hum, a swarm),
+  - "big" sounds that should feel thick (a monster roar, an explosion's rumble, a magic swell).
+
+  Don't stack a single crisp event (one footstep, a UI blip, a single knock, a sword clang):
+  the hits never line up exactly, so the attack smears into a flam. Start with 3-4 layers and
+  `--spread 0` (hits together); for a looser group (chatter, a flock taking off) try
+  `--spread 30`-`80`. **Stacks usually score lower than their best single take** (a denser sound
+  reads as noise to Audiobox and CLAP), so never reject a stack on its score: deliver both files
+  (`--out` does) and let the user choose by ear.
 
 ## 6. Delivering and finishing
 
@@ -264,7 +284,8 @@ done or need the GPU:
 cmd //c "$(cygpath -w ~/.claude/skills/local-sounds/stop.cmd)"
 ```
 
-The page at http://127.0.0.1:8191/ is for the user: generate and compare takes by ear, adjust timing,
+When the user wants to fine-tune a stack or a layered mix themselves, the page's mixer is the
+tool: they hear changes instantly. The page at http://127.0.0.1:8191/ is for the user: generate and compare takes by ear, adjust timing,
 and a **mixer** (Add to mix on takes, then position and volume sliders per layer, instant preview,
 Export mix). Point them to it when they want to audition or hand-place layers themselves.
 

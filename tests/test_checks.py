@@ -111,7 +111,9 @@ def test_plot_writes_a_png(tmp_path):
     ("two swords clashing", "impact-metal"), ("a glass bottle shattering on concrete", "impact-glass"),
     ("a fast sword swing whoosh", "whoosh"), ("a single footstep on a creaky wooden floor", "footsteps"),
     ("a character zooming past the camera, whoosh", "whoosh"), ("a robot powering up", "scifi-machine"),
-    ("a small creature growling", "creature"), ("knocked on a crate", "impact-wood")])
+    ("a small creature growling", "creature"), ("knocked on a crate", "impact-wood"),
+    ("a group of pelicans chatting", "bird"), ("a flock of seagulls", "bird"), ("dog barking", "animal"),
+    ("a wolf howling at night", "animal"), ("a dragon roar", "creature")])
 def test_categories_are_detected(text, key):
     assert prompts.detect(text).key == key
 
@@ -135,6 +137,12 @@ def test_a_loop_request_gets_the_ambience_recipe():
     assert p["category"] == "ambience" and "close-mic" not in p["prompt"]
     assert prompts.build_prompt("glass window", mode="oneshot")["category"] == "impact-glass"
     assert prompts.build_prompt("glass window", category="impact-glass", mode="loop")["category"] == "impact-glass"
+
+
+def test_group_sounds_are_not_asked_for_as_a_single_event():
+    assert "single" not in prompts.build_prompt("a group of pelicans chatting")["prompt"]
+    assert "single" not in prompts.build_prompt("a herd of goats")["prompt"]
+    assert "single" in prompts.build_prompt("sword hit")["prompt"]
 
 
 def test_raw_sends_the_text_as_written():

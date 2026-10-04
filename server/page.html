@@ -573,6 +573,7 @@ $("mixexport").onclick = async () => {
   await withButton($("mixexport"), "Rendering…", async () => {
     const rec = await api("/api/layer", body), t = rec.takes[0];
     $("mixout").innerHTML = `<div class="chips">${chipsFor(rec, t)}</div>
+      ${rec.stack ? `<div class="small">A stack of one sound's takes often scores lower than a single take while sounding fuller: trust your ears.</div>` : ""}
       ${(t.warnings || []).map(w => `<div class="warn">! ${esc(w)}</div>`).join("")}
       <audio controls src="/files/${t.files.wav}?v=${Date.now()}"></audio>
       <div class="btns"><a class="button primary" href="/files/${t.files.wav}" download="${esc(fileName(rec, 1))}">⬇ Download ${esc(fileName(rec, 1))}</a></div>
