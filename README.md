@@ -181,13 +181,25 @@ the page and to every API/CLI request that leaves a setting out; the repo's defa
 
 ### The page
 
-http://127.0.0.1:8191/: type a sound (Ctrl+Enter generates), see the prompt it becomes as you
-type, pick engine, category, mode, duration, N, seed, fps, hit frame, reverb, steps and negative
-prompt. Each ranked take shows its scores, warnings, a player and its spectrogram (click to
-enlarge), with **WAV**, **More like this**, **Use seed**, **Variations**, **Caption** and a
-**layer** tick for mixing. **Re-process** re-runs trimming, alignment, mode, loudness and reverb
-on every take of a request from the raw audio, without regenerating. **Recent** reopens earlier
-requests. Hover over any control for 1 s for an explanation.
+http://127.0.0.1:8191/ is kept simple: describe a sound, pick the kind (Auto, One-shot, Loop,
+Ambience), optionally a length and the frame the hit should land on, and press **Generate**
+(Ctrl+Enter). The line under the text says what it will make ("Sounds like: impact glass ·
+one-shot · 1.5 s"). Takes come back best first, each with a player, plain **Match** and
+**Quality** ratings, **Download** (named like a library file, `GLASImpt_..._v01.wav`), **More like
+this** (Fast engine), **Make 5 variations** and **Add to mix**; the spectrogram, seed, raw scores
+and caption sit under **Details**, and rejected takes are folded away. **Adjust timing (all
+takes)** re-trims a request without regenerating: move the hit to another frame, turn it into a
+loop, change the length. **Recent** reopens earlier requests and puts their text back in the box.
+
+**The mixer** appears when you add takes to it: each layer has a position slider (where its hit
+lands, with one-frame nudges) and a volume slider, and the timeline shows them on the frame grid
+(drag a layer to move it). **Play mix** previews instantly in the browser; **Export mix** renders it
+on the server (limiter, level, whole frames; loops stay loops) and gives you the WAV.
+
+Everything else (engine, category, number of takes, seed, fps, reverb, steps, what to avoid,
+raw wording, scoring, and saving your defaults to `config.local.json`, which asks first) is under
+**Advanced**, which shows how many settings differ from your defaults. Hover over a control for
+half a second for an explanation.
 
 ### HTTP API (127.0.0.1:8191)
 

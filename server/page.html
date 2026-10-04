@@ -9,110 +9,164 @@
 @media (prefers-color-scheme: dark) { :root { --bg:#151618; --fg:#e7e7e7; --card:#202124; --muted:#9a9a9a; --line:#36383c; --acc:#6c9eff; --bad:#ff8a80; --warn:#e3b341; --ok:#5fd38a; --chip:#2b2d31; } }
 * { box-sizing:border-box; }
 body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.45 system-ui, -apple-system, Segoe UI, sans-serif; }
-header { display:flex; flex-wrap:wrap; gap:12px; align-items:baseline; padding:12px 16px; border-bottom:1px solid var(--line); }
-header h1 { font-size:18px; margin:0; } header .status { color:var(--muted); font-size:12px; } header a { color:var(--acc); font-size:13px; }
-main { display:grid; grid-template-columns:360px 1fr; gap:16px; padding:16px; max-width:1500px; margin:0 auto; }
+header { display:flex; gap:12px; align-items:baseline; padding:12px 16px; border-bottom:1px solid var(--line); }
+header h1 { font-size:18px; margin:0; }
+#status { font-size:12px; color:var(--muted); } #status.ready { color:var(--ok); } #status.busy { color:var(--warn); } #status.down { color:var(--bad); }
+main { display:grid; grid-template-columns:340px 1fr; gap:16px; padding:16px; max-width:1500px; margin:0 auto; }
 @media (max-width:900px) { main { grid-template-columns:1fr; } }
 .panel, .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; }
-.panel h2 { font-size:14px; margin:14px 0 6px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
-.panel h2:first-child { margin-top:0; }
-label { display:block; font-size:12px; color:var(--muted); margin:6px 0 2px; }
+.panel h2 { font-size:12px; margin:16px 0 6px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
+label { display:block; font-size:12px; color:var(--muted); margin:8px 0 3px; }
 input, select, textarea, button { font:inherit; color:var(--fg); }
 input, select, textarea { width:100%; padding:6px 8px; border:1px solid var(--line); border-radius:6px; background:var(--bg); }
-textarea { resize:vertical; min-height:58px; }
+textarea { resize:vertical; min-height:64px; }
 .row { display:grid; grid-template-columns:1fr 1fr; gap:8px; } .row3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; }
 .check { display:flex; gap:6px; align-items:center; margin-top:8px; font-size:13px; color:var(--fg); }
 .check input { width:auto; }
-button { padding:7px 12px; border:1px solid var(--line); border-radius:6px; background:var(--bg); cursor:pointer; }
-button.primary { background:var(--acc); border-color:var(--acc); color:#fff; font-weight:600; }
-button.wide { width:100%; padding:9px 12px; }
+button, a.button { padding:7px 12px; border:1px solid var(--line); border-radius:6px; background:var(--bg); cursor:pointer; text-decoration:none; color:var(--fg); display:inline-block; font-size:14px; }
+button.primary, a.button.primary { background:var(--acc); border-color:var(--acc); color:#fff; font-weight:600; }
+button.wide { width:100%; padding:10px 12px; margin-top:12px; }
+button.on { background:var(--acc); border-color:var(--acc); color:#fff; }
+button.link { border:none; background:none; color:var(--bad); padding:0; font-size:12px; text-decoration:underline; }
 button:disabled { opacity:.5; cursor:wait; }
-.btns { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
-.preview { font-size:12px; color:var(--muted); margin-top:6px; white-space:pre-wrap; word-break:break-word; }
-.takes { display:grid; grid-template-columns:repeat(auto-fill, minmax(420px, 1fr)); gap:12px; }
+.btns { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; align-items:center; }
+.seg { display:flex; border:1px solid var(--line); border-radius:6px; overflow:hidden; }
+.seg button { flex:1; border:none; border-radius:0; padding:6px 4px; font-size:13px; }
+.seg button + button { border-left:1px solid var(--line); }
+.seg button.on { font-weight:600; }
+.preview { font-size:12px; color:var(--muted); margin-top:6px; min-height:1em; }
+.fullprompt { font-size:12px; color:var(--muted); white-space:pre-wrap; word-break:break-word; }
+details > summary { cursor:pointer; color:var(--muted); font-size:13px; user-select:none; }
+details.adv { margin-top:14px; border-top:1px solid var(--line); padding-top:10px; }
+details.adv[open] > summary { margin-bottom:4px; }
+.likechip { margin-top:10px; font-size:12px; background:var(--chip); border-radius:12px; padding:3px 6px 3px 10px; display:flex; gap:6px; align-items:center; }
+.likechip button { padding:0 6px; border:none; background:none; }
+.takes { display:grid; grid-template-columns:repeat(auto-fill, minmax(360px, 1fr)); gap:12px; }
 @media (max-width:500px) { .takes { grid-template-columns:1fr; } }
-.card.rejected { opacity:.6; }
-.card h3 { margin:0 0 4px; font-size:15px; display:flex; gap:8px; align-items:baseline; flex-wrap:wrap; }
+.card h3 { margin:0 0 6px; font-size:16px; display:flex; gap:8px; align-items:center; }
+.badge { font-size:11px; font-weight:600; border-radius:10px; padding:1px 8px; background:var(--acc); color:#fff; }
+.badge.bad { background:var(--bad); }
 .chips { display:flex; flex-wrap:wrap; gap:4px; margin:4px 0; }
-.chip { background:var(--chip); border-radius:12px; padding:1px 8px; font-size:12px; }
-.chip.bad { color:var(--bad); } .chip.ok { color:var(--ok); }
+.chip { background:var(--chip); border-radius:12px; padding:1px 9px; font-size:12px; }
+.chip.bad { color:var(--bad); } .chip.ok { color:var(--ok); } .chip.mid { color:var(--warn); }
 .warn { color:var(--warn); font-size:12px; } .fail { color:var(--bad); font-size:12px; font-weight:600; }
+.card audio { width:100%; margin-top:6px; height:40px; }
 .card img { width:100%; border-radius:6px; margin-top:6px; cursor:zoom-in; }
-.card audio { width:100%; margin-top:6px; }
-.reqhead { margin-bottom:10px; } .reqhead .prompt { color:var(--muted); font-size:12px; }
-.history { font-size:12px; max-height:220px; overflow:auto; }
-.history div { padding:3px 0; cursor:pointer; border-bottom:1px dashed var(--line); } .history div:hover { color:var(--acc); }
+.card details { margin-top:8px; }
+.details-body { font-size:12px; color:var(--muted); margin-top:4px; }
+.reqhead { margin-bottom:12px; } .reqhead h2 { margin:0; font-size:18px; } .reqhead .sub { color:var(--muted); font-size:13px; }
+.reqhead details { margin-top:8px; }
+.history { font-size:13px; max-height:190px; overflow:auto; }
+.history div { padding:4px 0; cursor:pointer; border-bottom:1px dashed var(--line); display:flex; gap:6px; justify-content:space-between; }
+.history div:hover, .history div.cur { color:var(--acc); }
+.history .when { color:var(--muted); font-size:11px; white-space:nowrap; }
+.history .tag { font-size:10px; background:var(--chip); border-radius:8px; padding:0 6px; color:var(--muted); }
+.history.busy { opacity:.5; pointer-events:none; }
 .small { font-size:12px; color:var(--muted); }
-#msg { margin:8px 0; font-size:13px; } #msg.err { color:var(--bad); }
+#msg { margin:8px 0; font-size:13px; color:var(--bad); }
+.working { text-align:center; padding:40px 14px; color:var(--muted); }
 #tip { position:fixed; z-index:50; max-width:320px; background:var(--fg); color:var(--bg); padding:6px 9px; border-radius:6px; font-size:12px; pointer-events:none; opacity:0; transition:opacity .12s; }
 #tip.on { opacity:.95; }
 dialog { border:1px solid var(--line); border-radius:10px; background:var(--card); color:var(--fg); max-width:420px; }
 dialog::backdrop { background:rgba(0,0,0,.35); }
-.layer { display:grid; grid-template-columns:auto 70px 80px; gap:6px; align-items:center; font-size:12px; margin-top:4px; }
-.layer input { padding:3px 5px; }
 #big { position:fixed; inset:0; background:rgba(0,0,0,.8); display:none; align-items:center; justify-content:center; z-index:60; }
 #big img { max-width:96vw; max-height:94vh; } #big.on { display:flex; }
+/* mixer */
+#mixer { margin-bottom:12px; }
+.mixhead, .mixfoot { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+.mixfoot { margin-top:10px; } .mixfoot label { margin:0; } .mixfoot select { width:auto; } .mixfoot input { width:190px; }
+.spacer { flex:1; }
+#timeline { width:100%; display:block; margin:10px 0 4px; border:1px solid var(--line); border-radius:6px; background:var(--bg); cursor:ew-resize; touch-action:none; }
+.lane { display:grid; grid-template-columns:14px minmax(110px, 1.1fr) auto 2fr 2fr auto; gap:8px; align-items:center; padding:6px 0; border-bottom:1px dashed var(--line); font-size:12px; }
+.lane .sw { width:12px; height:12px; border-radius:3px; }
+.lane .nm { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.lane .sl { display:grid; grid-template-columns:auto 1fr auto; gap:6px; align-items:center; }
+.lane .sl.pos { grid-template-columns:auto 1fr auto auto; }
+.lane .sl input[type=range] { padding:0; border:none; background:none; }
+.lane .val { min-width:64px; text-align:right; font-variant-numeric:tabular-nums; }
+.lane button { padding:2px 7px; font-size:12px; }
+.lane.muted { opacity:.45; }
+@media (max-width:900px) { .lane { grid-template-columns:14px 1fr auto; } .lane .sl { grid-column:1 / -1; } }
+#mixout { margin-top:8px; } #mixout audio { width:100%; } #mixout img { width:100%; border-radius:6px; margin-top:6px; }
 </style>
 </head>
 <body>
 <header>
   <h1>local-sounds</h1>
-  <span class="status" id="status">connecting...</span>
-  <a href="/bakeoff/" data-tip="The blind A/B comparison of the two engines (if scripts/bakeoff.py has been run).">bake-off</a>
+  <span id="status" data-tip="">connecting...</span>
 </header>
 <main>
 <section class="panel" id="panel">
-  <h2>Sound</h2>
-  <textarea id="text" placeholder="sword hit on a shield" data-tip="What you want, tersely: one sound event. The category recipe adds envelope and recording words. Ctrl+Enter generates."></textarea>
+  <textarea id="text" placeholder="describe one sound, e.g. sword hit on a shield" data-tip="Describe one sound, briefly. Ctrl+Enter generates."></textarea>
   <div class="preview" id="preview"></div>
-  <div class="row">
-    <div><label>Engine</label><select id="engine" data-tip="sa3: Stable Audio 3 Small-SFX (44.1 kHz stereo, 8 steps, fast; ignores the negative prompt and CFG). moss: MOSS-SoundEffect v2 (48 kHz mono, 100 steps, slower; uses the negative prompt).">
-      <option value="sa3">sa3 (Stable Audio 3)</option><option value="moss">moss (MOSS v2)</option></select></div>
-    <div><label>Category</label><select id="category" data-tip="The prompt recipe and UCS file category. Auto picks it from the words."><option value="">auto</option></select></div>
-  </div>
-  <div class="row3">
-    <div><label>Mode</label><select id="mode" data-tip="oneshot: trimmed so the hit lands at t=0, mono, peak -1 dBTP. ambience: stereo, -23 LUFS. loop: a seamless loop of exactly the duration."><option value="">auto</option><option>oneshot</option><option>ambience</option><option>loop</option></select></div>
-    <div><label>Duration s</label><input id="duration" type="number" step="0.1" min="0.05" max="120" placeholder="auto" data-tip="One-shots: the most it may last (trimmed to the sound). Ambiences and loops: exactly this long."></div>
-    <div><label>Takes (N)</label><input id="n" type="number" min="1" max="16" data-tip="Best-of-N: this many seeds are generated, checked and ranked."></div>
-  </div>
-  <div class="row3">
-    <div><label>Seed</label><input id="seed" placeholder="random" data-tip="Start seed: takes use seed, seed+1, ... Empty = random. The same seed and prompt give the same sound."></div>
-    <div><label>FPS</label><input id="fps" type="number" step="0.001" min="1" max="240" data-tip="Frame rate for alignment, padding to whole frames and the plot's grid."></div>
-    <div><label>Hit on frame</label><input id="align_frame" type="number" min="0" placeholder="none" data-tip="One-shots: put the transient exactly on this frame (padding in front). Empty: the hit lands at t=0 after a 3 ms pre-roll."></div>
-  </div>
-  <div class="row">
-    <div><label>Reverb</label><select id="reverb" data-tip="Dry by default. room: a small, damped room. hall: medium hall."><option>none</option><option>room</option><option>hall</option></select></div>
-    <div><label>Steps</label><input id="steps" type="number" min="1" max="250" placeholder="engine default" data-tip="Sampling steps. Defaults: sa3 8, moss 100."></div>
-  </div>
-  <label>Negative prompt</label>
-  <input id="negative" placeholder="category default" data-tip="What to avoid. Only moss uses it; Stable Audio 3 Small-SFX ignores negative prompts (per Stability's docs).">
-  <label class="check" data-tip="Send the text exactly as written, without the category recipe."><input type="checkbox" id="raw"> Raw prompt (no recipe)</label>
-  <label class="check" data-tip="CLAP (does it match the prompt?) and Audiobox Aesthetics (production quality) scores. Signal checks always run."><input type="checkbox" id="check"> Model scores</label>
-  <label class="check" data-tip="Also describe the best take with the audio captioner (loads a 2.8 GB model for a few seconds; must be downloaded)."><input type="checkbox" id="caption"> Caption the best take</label>
-  <div class="btns">
-    <button class="primary wide" id="go" data-tip="Generate N takes, check and rank them (Ctrl+Enter).">Generate</button>
-  </div>
-  <div id="likebox" class="small"></div>
-  <div id="msg"></div>
 
-  <h2>Layers</h2>
-  <div class="small" id="layers">Tick "layer" on takes to mix them.</div>
-  <div class="btns"><button id="mix" data-tip="Mix the ticked takes: each layer's transient lands at its offset (ms) from the first one's, with its gain, through a limiter.">Mix layers</button></div>
+  <label>Kind</label>
+  <div class="seg" id="modeSeg" data-tip="One-shot: trimmed so the sound starts at once. Loop: repeats seamlessly for exactly the length. Ambience: a background bed of exactly the length. Auto picks from your words.">
+    <button data-v="" class="on">Auto</button><button data-v="oneshot">One-shot</button><button data-v="loop">Loop</button><button data-v="ambience">Ambience</button>
+  </div>
+  <div class="row">
+    <div><label>Length (s)</label><input id="duration" type="number" step="0.1" min="0.05" max="120" placeholder="auto" data-tip="One-shots: the most it may last (trimmed to the actual sound). Loops and ambiences: exactly this long. Empty: a sensible length for the kind of sound."></div>
+    <div id="alignBox"><label id="alignLabel">Hit on frame</label><input id="align_frame" type="number" min="0" placeholder="start" data-tip="Put the hit exactly on this frame (silence is added before it). Empty: the hit is at the very start."></div>
+  </div>
+  <div id="likebox"></div>
+  <button class="primary wide" id="go" data-tip="Make several versions, check them and show them best first (Ctrl+Enter).">Generate</button>
+  <div id="msg"></div>
 
   <h2>Recent</h2>
   <div class="history" id="history"></div>
 
-  <h2>My defaults</h2>
-  <div class="small">The settings above that every new page and every agent request start from.</div>
-  <div class="btns">
-    <button id="save" data-tip="Store these settings in config.local.json: the page and every agent request that leaves them out will use them. Asks first.">Save as my defaults</button>
-    <button id="reset" data-tip="Delete config.local.json and go back to the repo's built-in defaults. Asks first.">Reset to built-in</button>
-  </div>
+  <details class="adv" id="adv">
+    <summary id="advSum">Advanced</summary>
+    <div class="fullprompt" id="fullprompt"></div>
+    <div class="row">
+      <div><label>Engine</label><select id="engine" data-tip="Fast: Stable Audio 3 Small-SFX, about half a second a take (it ignores 'Avoid'). Slow: MOSS-SoundEffect v2, about 13 s a take, 48 kHz mono, uses 'Avoid'.">
+        <option value="sa3">Fast (Stable Audio 3)</option><option value="moss">Slow (MOSS v2)</option></select></div>
+      <div><label>Category</label><select id="category" data-tip="The wording recipe and the file-name category. Auto picks it from your words."><option value="">auto</option></select></div>
+    </div>
+    <div class="row3">
+      <div><label>Takes to try</label><input id="n" type="number" min="1" max="16" data-tip="How many versions to make; you get them best first."></div>
+      <div><label>Seed</label><input id="seed" placeholder="random" data-tip="The same seed and words give the same sound. Takes use seed, seed+1, ... Empty: random."></div>
+      <div><label>FPS</label><input id="fps" type="number" step="0.001" min="1" max="240" data-tip="Frame rate for 'Hit on frame', for padding to whole frames and for the plot's grid."></div>
+    </div>
+    <div class="row">
+      <div><label>Reverb</label><select id="reverb" data-tip="Dry by default: your mix adds the space. room: a small room. hall: a medium hall."><option>none</option><option>room</option><option>hall</option></select></div>
+      <div><label>Steps</label><input id="steps" type="number" min="1" max="250" placeholder="auto" data-tip="Sampling steps. Auto: 8 for Fast, 100 for Slow."></div>
+    </div>
+    <label>Avoid (Slow engine only)</label>
+    <input id="negative" placeholder="auto: music, speech, noise, reverb..." data-tip="What the Slow engine should steer away from. The Fast engine ignores it.">
+    <label class="check" data-tip="Send the text exactly as written, without the added wording (envelope, 'close-mic, dry')."><input type="checkbox" id="raw"> Send my words exactly (no auto-wording)</label>
+    <label class="check" data-tip="Score how well each take matches your words, and its production quality. A few seconds slower; the basic checks always run."><input type="checkbox" id="check"> Score match and quality</label>
+    <h2>My defaults</h2>
+    <div class="small">Used for new pages and for agent (CLI) requests that don't set them.</div>
+    <div class="btns">
+      <button id="save" data-tip="Store the settings above in config.local.json. Asks first.">Make these my defaults</button>
+      <button id="reset" data-tip="Delete config.local.json and use the original defaults again. Asks first.">Restore original defaults</button>
+    </div>
+    <div class="btns"><a href="/bakeoff/" class="small" data-tip="The blind A/B comparison of the two engines, if it has been run.">engine bake-off page</a></div>
+  </details>
 </section>
 
-<section>
-  <div id="result"><p class="small">Ranked takes appear here: listen, compare the scores, look at the spectrograms
-  (frame grid, red onset line), then download, vary, or re-process them.</p></div>
+<section id="right">
+  <div id="mixer" class="card" hidden>
+    <div class="mixhead">
+      <b>Mixer</b> <span class="small" id="mixcount"></span>
+      <span class="spacer"></span>
+      <button id="mixplay" class="primary" data-tip="Play the mix here in the browser, instantly (the export also limits and normalises the level).">▶ Play mix</button>
+      <button id="mixstop" data-tip="Stop playback.">■ Stop</button>
+      <button id="mixclear" data-tip="Take every layer out of the mixer (the takes themselves are kept).">Clear</button>
+    </div>
+    <canvas id="timeline" height="10" data-tip="Each layer at its position on the frame grid. Drag a layer left or right to move it."></canvas>
+    <div id="lanes"></div>
+    <div class="mixfoot">
+      <label>Export as</label>
+      <select id="mixmode" data-tip="One-shot: placed like any one-shot. Loop: every layer wrapped to the first one's length, so the mix still loops. Ambience: summed.">
+        <option value="oneshot">one-shot</option><option value="loop">loop</option><option value="ambience">ambience</option></select>
+      <input id="mixname" placeholder="file name, e.g. BigHit" data-tip="Letters and digits. Empty: the first layer's name + Layered.">
+      <button id="mixexport" class="primary" data-tip="Render the mix (limiter, level, whole frames) and get the WAV.">Export mix</button>
+    </div>
+    <div id="mixout"></div>
+  </div>
+  <div id="result"><p class="small">Your takes appear here, best first. Play, pick one, Download.</p></div>
 </section>
 </main>
 
@@ -122,18 +176,17 @@ dialog::backdrop { background:rgba(0,0,0,.35); }
 
 <script>
 const $ = id => document.getElementById(id);
-const FIELDS = ["engine", "category", "mode", "duration", "n", "seed", "fps", "align_frame", "reverb", "steps", "negative", "raw", "check", "caption"];
-let current = null, like = null, layers = {}, settings = null;
+let current = null, like = null, layers = {}, settings = null, mode = "", isBusy = false;
 
-// ---------------------------------------------------------------- tooltips (after 1 s)
+// ---------------------------------------------------------------- tooltips (after 0.5 s)
 let tipTimer = null;
 document.addEventListener("mouseover", e => {
   const el = e.target.closest("[data-tip]"); clearTimeout(tipTimer); $("tip").classList.remove("on");
-  if (!el) return;
+  if (!el || !el.dataset.tip) return;
   tipTimer = setTimeout(() => {
     const r = el.getBoundingClientRect(), t = $("tip"); t.textContent = el.dataset.tip;
     t.style.left = Math.min(r.left, innerWidth - 330) + "px"; t.style.top = (r.bottom + 6) + "px"; t.classList.add("on");
-  }, 1000);
+  }, 500);
 });
 document.addEventListener("mouseout", e => { if (e.target.closest("[data-tip]")) { clearTimeout(tipTimer); $("tip").classList.remove("on"); } });
 
@@ -148,186 +201,421 @@ async function api(path, body, method) {
   }
   return j;
 }
-function msg(t, err) { $("msg").textContent = t || ""; $("msg").className = err ? "err" : ""; }
+function msg(t) { $("msg").textContent = t || ""; }
 function confirmBox(text) {
   return new Promise(res => { $("confirmText").textContent = text; const d = $("confirm"); d.showModal();
     $("cYes").onclick = () => { d.close(); res(true); }; $("cNo").onclick = () => { d.close(); res(false); }; });
 }
 function esc(s) { return String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]); }
 function num(id) { const v = $(id).value.trim(); return v === "" ? null : Number(v); }
-function busy(on) { document.querySelectorAll("button").forEach(b => b.disabled = on); }
+function busy(on, label) {
+  isBusy = on;
+  document.querySelectorAll("button").forEach(b => b.disabled = on);
+  $("history").classList.toggle("busy", on);
+  $("go").textContent = on && label ? label : goLabel();
+}
+const fps = () => num("fps") || 24;
+const goLabel = () => like ? `Generate more like #${like.rank}` : "Generate";
+// Run an action from a button: its own label says what's happening.
+async function withButton(b, label, fn) {
+  const old = b.textContent; busy(true); b.textContent = label;
+  try { await fn(); msg(""); } catch (e) { msg(e.message); } finally { b.textContent = old; busy(false); }
+}
 
-// ---------------------------------------------------------------- settings
+// ---------------------------------------------------------------- the panel
+document.querySelectorAll("#modeSeg button").forEach(b => b.onclick = () => setMode(b.dataset.v));
+function setMode(v) {
+  mode = v;
+  document.querySelectorAll("#modeSeg button").forEach(b => b.classList.toggle("on", b.dataset.v === v));
+  $("alignBox").style.visibility = (v === "" || v === "oneshot") ? "visible" : "hidden";
+  preview();
+}
+function updateAlignLabel() { $("alignLabel").textContent = `Hit on frame (at ${fps()} fps)`; }
+$("fps").addEventListener("input", () => { updateAlignLabel(); countAdvanced(); });
+
 function applySettings(eff) {
   $("engine").value = eff.engine; $("n").value = eff.n; $("seed").value = eff.seed ?? "";
   $("fps").value = eff.fps; $("reverb").value = eff.reverb; $("steps").value = eff.steps ?? "";
   $("negative").value = eff.negative ?? ""; $("raw").checked = !!eff.raw; $("check").checked = !!eff.check;
-  $("caption").checked = !!eff.caption;
+  $("category").value = "";
+  updateAlignLabel(); countAdvanced();
 }
 function panelSettings() {
   return {engine: $("engine").value, n: num("n"), seed: num("seed"), fps: num("fps"), reverb: $("reverb").value,
-          steps: num("steps"), negative: $("negative").value.trim() || null, raw: $("raw").checked,
-          check: $("check").checked, caption: $("caption").checked};
+          steps: num("steps"), negative: $("negative").value.trim() || null, raw: $("raw").checked, check: $("check").checked};
 }
+// "Advanced (2 changed)": a hidden override is never invisible.
+function countAdvanced() {
+  if (!settings) return;
+  const eff = settings.effective, p = panelSettings();
+  let n = Object.keys(p).filter(k => (p[k] ?? null) !== (eff[k] ?? null)).length + ($("category").value ? 1 : 0);
+  $("advSum").textContent = n ? `Advanced (${n} changed)` : "Advanced";
+}
+$("adv").addEventListener("input", countAdvanced);
+$("adv").addEventListener("toggle", () => { try { localStorage.setItem("adv", $("adv").open ? "1" : ""); } catch (e) {} });
+try { $("adv").open = localStorage.getItem("adv") === "1"; } catch (e) {}
+
 $("save").onclick = async () => {
-  if (!await confirmBox("Save these settings as your defaults (config.local.json)? The page and every agent request that doesn't set them will use them.")) return;
-  try { settings = await api("/api/settings", panelSettings()); msg("Saved as your defaults."); } catch (e) { msg(e.message, true); }
+  if (!await confirmBox("Make these settings your defaults (config.local.json)? New pages and agent requests that don't set them will use them.")) return;
+  try { settings = await api("/api/settings", panelSettings()); countAdvanced(); msg(""); } catch (e) { msg(e.message); }
 };
 $("reset").onclick = async () => {
-  if (!await confirmBox("Delete your saved defaults and go back to the built-in ones?")) return;
-  try { settings = await api("/api/settings", null, "DELETE"); applySettings(settings.effective); msg("Back to the built-in defaults."); } catch (e) { msg(e.message, true); }
+  if (!await confirmBox("Delete your saved defaults and use the original ones?")) return;
+  try { settings = await api("/api/settings", null, "DELETE"); applySettings(settings.effective); } catch (e) { msg(e.message); }
 };
 
-// ---------------------------------------------------------------- prompt preview
+// ---------------------------------------------------------------- what it will make
 let pvTimer = null;
+const KIND = {oneshot: "one-shot", loop: "loop", ambience: "ambience"};
 function preview() {
   clearTimeout(pvTimer);
   pvTimer = setTimeout(async () => {
-    const t = $("text").value.trim(); if (!t) { $("preview").textContent = ""; return; }
-    const q = new URLSearchParams({text: t, raw: $("raw").checked}); if ($("category").value) q.set("category", $("category").value);
-    if ($("mode").value) q.set("mode", $("mode").value);
-    try { const p = await api("/api/prompt?" + q);
-      $("preview").textContent = `→ ${p.prompt}\n${p.category} · ${p.mode} · ${p.duration}s default · ${p.name}`; } catch (e) { $("preview").textContent = e.message; }
-  }, 350);
+    const t = $("text").value.trim(); if (!t) { $("preview").textContent = ""; $("fullprompt").textContent = ""; return; }
+    const q = new URLSearchParams({text: t, raw: $("raw").checked});
+    if ($("category").value) q.set("category", $("category").value);
+    if (mode) q.set("mode", mode);
+    try {
+      const p = await api("/api/prompt?" + q), len = num("duration") || p.duration;
+      $("preview").textContent = `Sounds like: ${p.category.replace(/-/g, " ")} · ${KIND[mode || p.mode]} · ${len} s`;
+      $("fullprompt").textContent = `Sent to the model: ${p.prompt}\nFile: ${p.name}`;
+    } catch (e) { $("preview").textContent = ""; }
+  }, 300);
 }
-["text", "category", "raw", "mode"].forEach(id => $(id).addEventListener("input", preview));
+["text", "category", "raw", "duration"].forEach(id => $(id).addEventListener("input", preview));
 
 // ---------------------------------------------------------------- generate
 async function generate() {
-  const text = $("text").value.trim(); if (!text) { msg("Type a sound first.", true); return; }
-  const body = {text, engine: $("engine").value, raw: $("raw").checked, check: $("check").checked, caption: $("caption").checked,
-                reverb: $("reverb").value};
+  const text = $("text").value.trim(); if (!text) { msg("Describe a sound first."); return; }
+  const body = {text, engine: $("engine").value, raw: $("raw").checked, check: $("check").checked, reverb: $("reverb").value};
   for (const k of ["duration", "n", "fps", "align_frame", "steps"]) { const v = num(k); if (v !== null) body[k] = v; }
   const seed = $("seed").value.trim(); body.seed = seed === "" ? null : Number(seed);
   if ($("category").value) body.category = $("category").value;
-  if ($("mode").value) body.mode = $("mode").value;
+  if (mode) body.mode = mode;
+  if (body.mode && body.mode !== "oneshot") delete body.align_frame;
   if ($("negative").value.trim()) body.negative = $("negative").value.trim();
-  if (like) body.like = like;
-  busy(true); msg("Generating... (moss takes ~15 s a take; sa3 ~1 s)");
-  try { show(await api("/api/generate", body)); msg(""); history(); } catch (e) { msg(e.message, true); }
-  finally { busy(false); }
+  if (like) body.like = like.ref;
+  const n = body.n || settings?.effective?.n || 4, slow = body.engine === "moss", t0 = Date.now();
+  $("result").innerHTML = `<div class="card working" id="working">Generating ${n} takes with the ${slow ? "Slow" : "Fast"} engine… <span id="elapsed">0</span> s
+    <div class="small">${slow ? "about 13 s a take" : "usually a few seconds in all"}</div></div>`;
+  const timer = setInterval(() => { const e = $("elapsed"); if (e) e.textContent = Math.round((Date.now() - t0) / 1000); }, 500);
+  busy(true, "Generating…"); msg("");
+  try { show(await api("/api/generate", body)); history(); if (innerWidth < 900) $("right").scrollIntoView({behavior: "smooth"}); }
+  catch (e) { msg(e.message); $("result").innerHTML = ""; }
+  finally { clearInterval(timer); busy(false); }
 }
 $("go").onclick = generate;
 $("text").addEventListener("keydown", e => { if (e.key === "Enter" && e.ctrlKey) generate(); });
 
+function setLike(rec, t) {
+  like = t ? {ref: t.ref, rank: t.rank, text: rec.text} : null;
+  $("likebox").innerHTML = like ? `<div class="likechip">More like take #${like.rank} of “${esc(like.text)}” <button id="unlike" data-tip="Back to normal generation.">×</button></div>` : "";
+  if (like) { $("unlike").onclick = () => setLike(null); if (!$("text").value.trim()) $("text").value = rec.text; }
+  $("go").textContent = goLabel();
+}
+
 // ---------------------------------------------------------------- results
-function chipsFor(t) {
-  const c = [`<span class="chip" data-tip="Rank score: CLAP match (cosine + softmax) and Audiobox production quality, minus warnings. Compare takes of the same request only.">score ${t.rank_score?.toFixed(2)}</span>`];
-  if (t.clap_cos !== undefined) c.push(`<span class="chip" data-tip="CLAP: cosine similarity of prompt and audio (about 0.1 poor, 0.25 fair, 0.35+ good), and in brackets the softmax of the prompt against distractor captions (music, speech, noise, near misses).">CLAP ${t.clap_cos.toFixed(2)} (${t.clap.toFixed(2)})</span>`);
-  if (t.aes?.PQ !== undefined) c.push(`<span class="chip ${t.aes.PQ < 5 ? "bad" : t.aes.PQ >= 7 ? "ok" : ""}" data-tip="Audiobox Aesthetics production quality, 1-10: noise, distortion and artefacts pull it down. Under 4 is rejected.">PQ ${t.aes.PQ.toFixed(1)}</span>`);
-  const p = t.post || {};
-  if (p.length_s !== undefined) c.push(`<span class="chip" data-tip="Delivered length, and in whole frames at the request's fps.">${p.length_s.toFixed(2)} s · ${p.length_frames} fr</span>`);
-  if (p.onset_s !== undefined) c.push(`<span class="chip" data-tip="Where the transient starts in the delivered file (red line on the plot).">onset ${(p.onset_s * 1000).toFixed(0)} ms · fr ${p.onset_frame}</span>`);
-  if (p.seam_ok !== undefined) c.push(`<span class="chip ${p.seam_ok ? "ok" : "bad"}" data-tip="Loop seam: how much the end-to-start join stands out from the rest of the loop (jump, level and spectral change ratios).">seam ${p.seam_ok ? "ok" : "audible?"}</span>`);
-  if (t.final) c.push(`<span class="chip" data-tip="True peak (dBTP) and integrated loudness (LUFS) of the delivered file.">${t.final.true_peak_dbtp} dBTP · ${t.final.lufs} LUFS</span>`);
+const matchOf = c => c >= 0.35 ? ["good", "ok"] : c >= 0.25 ? ["fair", "mid"] : ["poor", "bad"];
+const qualOf = q => q >= 7 ? ["good", "ok"] : q >= 5 ? ["ok", "mid"] : ["poor", "bad"];
+function chipsFor(rec, t) {
+  const c = [], p = t.post || {};
+  if (t.clap_cos !== undefined) { const [w, k] = matchOf(t.clap_cos);
+    c.push(`<span class="chip ${k}" data-tip="How well it matches what you typed.">Match: ${w}</span>`); }
+  if (t.aes?.PQ !== undefined) { const [w, k] = qualOf(t.aes.PQ);
+    c.push(`<span class="chip ${k}" data-tip="Production quality: noise, distortion, artefacts.">Quality: ${w}</span>`); }
+  if (p.length_s !== undefined) c.push(`<span class="chip" data-tip="Length, and in whole frames.">${p.length_s.toFixed(2)} s${p.length_frames !== undefined ? ` · ${p.length_frames} fr` : ""}</span>`);
+  if (rec.post?.align_frame !== null && rec.post?.align_frame !== undefined && rec.post?.mode === "oneshot")
+    c.push(`<span class="chip" data-tip="The hit lands exactly on this frame.">hit on frame ${rec.post.align_frame}</span>`);
+  if (p.seam_ok !== undefined) c.push(`<span class="chip ${p.seam_ok ? "ok" : "bad"}" data-tip="Whether the end runs into the start without a bump.">loop seam: ${p.seam_ok ? "clean" : "may click"}</span>`);
   return c.join("");
 }
+const fileName = (rec, k) => `${rec.cat_id}_${rec.name}_v${String(k).padStart(2, "0")}.wav`;
 function card(rec, t) {
-  const fails = (t.fails || []).map(f => `<div class="fail">✗ ${esc(f)}</div>`).join("");
+  const isMix = rec.engine === "layer", sa3 = rec.engine === "sa3", p = t.post || {};
   const warns = (t.warnings || []).map(w => `<div class="warn">! ${esc(w)}</div>`).join("");
-  const vars = (t.variations || []).map(v => `<div class="small">v${String(v.version).padStart(2, "0")} <audio controls preload="none" src="/files/${v.file}"></audio></div>`).join("");
-  const lay = layers[t.ref];
-  return `<div class="card ${t.rejected ? "rejected" : ""}">
-    <h3>#${t.rank} <span class="small">seed ${t.seed} · ${esc(t.ref)}</span></h3>
-    <div class="chips">${chipsFor(t)}</div>${fails}${warns}
-    ${t.caption ? `<div class="small" data-tip="What the captioner heard.">heard: ${esc(t.caption)}</div>` : ""}
+  const vars = (t.variations || []).map(v => `<div class="small">v${String(v.version).padStart(2, "0")}
+      <audio controls preload="none" src="/files/${v.file}"></audio>
+      <a href="/files/${v.file}" download="${esc(fileName(rec, v.version))}">download</a></div>`).join("");
+  const inMix = !!layers[t.ref];
+  const detail = [`seed ${t.seed}`, esc(t.ref)];
+  if (p.onset_s !== undefined) detail.push(`hit at ${(p.onset_s * 1000).toFixed(0)} ms`);
+  if (t.final) detail.push(`${t.final.true_peak_dbtp} dBTP · ${t.final.lufs} LUFS`);
+  if (t.clap_cos !== undefined) detail.push(`CLAP ${t.clap_cos.toFixed(2)} (${t.clap.toFixed(2)})`);
+  if (t.aes?.PQ !== undefined) detail.push(`PQ ${t.aes.PQ.toFixed(1)}`);
+  if (t.rank_score !== undefined && !isMix) detail.push(`rank score ${t.rank_score.toFixed(2)}`);
+  return `<div class="card">
+    <h3>${isMix ? "Mix" : `#${t.rank}`} ${t.rank === 1 && !t.rejected && !isMix ? `<span class="badge">Best</span>` : ""}
+      ${t.rejected ? `<span class="badge bad">Rejected: ${esc(t.fails[0])}</span>` : ""}</h3>
     <audio controls preload="none" src="/files/${t.files.wav}?v=${Date.now()}"></audio>
-    <img loading="lazy" src="/files/${t.files.png}?v=${Date.now()}" alt="spectrogram" data-tip="Waveform and spectrogram: grey lines are frames, the red line the onset. Click to enlarge.">
+    <div class="chips">${chipsFor(rec, t)}</div>${warns}
     <div class="btns">
-      <a href="/files/${t.files.wav}" download><button data-tip="The delivered WAV: 48 kHz 24-bit, INFO chunk with prompt, seed, model and scores.">WAV</button></a>
-      <button data-act="like" data-ref="${t.ref}" data-tip="Next generation starts from this take (audio-to-audio, sa3): similar, not identical.">More like this</button>
-      <button data-act="seed" data-seed="${t.seed}" data-tip="Put this seed in the panel (with the same prompt, it reproduces this take).">Use seed</button>
-      <button data-act="vars" data-ref="${t.ref}" data-tip="Make a round-robin set of 5: v01 is this take, v02-v05 small pitch/speed and EQ changes.">Variations</button>
-      <button data-act="cap" data-ref="${t.ref}" data-tip="Ask the audio captioner what this take contains (loads a 2.8 GB model briefly).">Caption</button>
-      <label class="check" data-tip="Add this take to the layer mix (left panel)."><input type="checkbox" data-act="layer" data-ref="${t.ref}" ${lay ? "checked" : ""}> layer</label>
-    </div>${vars}</div>`;
+      <a class="button primary" href="/files/${t.files.wav}" download="${esc(fileName(rec, t.rank || 1))}" data-tip="48 kHz 24-bit WAV, named like a sound library file.">Download</a>
+      ${!isMix ? `<button data-act="like" data-ref="${t.ref}" ${sa3 ? "" : "disabled"} data-tip="${sa3 ? "Make new takes that start from this one: similar, not identical." : "Only the Fast engine (Stable Audio 3) can do this."}">More like this</button>
+      <button data-act="vars" data-ref="${t.ref}" data-tip="5 slightly different copies (pitch, speed, tone) for repeated sounds like footsteps.">Make 5 variations</button>` : ""}
+      <button data-act="layer" data-ref="${t.ref}" class="${inMix ? "on" : ""}" data-tip="Add this take to the mixer at the top, or take it out.">${inMix ? "✓ In mix" : "Add to mix"}</button>
+    </div>${vars}
+    <details><summary>Details</summary>
+      <div class="details-body">${detail.join(" · ")}</div>
+      ${t.caption ? `<div class="details-body">heard: ${esc(t.caption)}</div>` : ""}
+      <img loading="lazy" src="/files/${t.files.png}?v=${Date.now()}" alt="spectrogram" data-tip="Grey lines = frames, red line = where the hit starts. Click to enlarge.">
+      ${!isMix ? `<div class="btns">
+        <button data-act="seed" data-seed="${t.seed}" data-tip="Put this seed in Advanced and set Takes to 1: with the same words, that remakes exactly this take.">Use seed</button>
+        <button data-act="cap" data-ref="${t.ref}" data-tip="Ask the audio captioner what this take contains (needs its 2.8 GB model downloaded).">Caption</button></div>` : ""}
+    </details></div>`;
 }
 function show(rec) {
   current = rec;
-  const p = rec.post || {};
+  const p = rec.post || {}, isMix = rec.engine === "layer";
+  const kept = rec.takes.filter(t => !t.rejected), rejected = rec.takes.filter(t => t.rejected);
+  const eng = {sa3: "Fast engine", moss: "Slow engine", layer: "mix"}[rec.engine] || rec.engine;
   $("result").innerHTML = `<div class="reqhead card">
-      <div><b>${esc(rec.cat_id)}_${esc(rec.name)}</b> <span class="small">${esc(rec.id)} · ${esc(rec.engine)} · ${esc(rec.category)} · ${esc(p.mode)} ·
-        ${rec.gen_s !== undefined ? `${rec.takes.length} takes in ${rec.gen_s}s + ${rec.score_s}s checks · ${rec.kept} kept` : ""}</span></div>
-      <div class="prompt">${esc(rec.prompt)}</div>
-      ${rec.negative ? `<div class="prompt">negative: ${esc(rec.negative)}${(rec.ignored || []).includes("negative") ? " (ignored by this engine)" : ""}</div>` : ""}
+      <h2>${esc(rec.text)}</h2>
+      <div class="sub">${isMix ? "mix" : `${rec.takes.length} take${rec.takes.length > 1 ? "s" : ""}`} · ${eng} · ${KIND[p.mode] || p.mode}${p.duration ? ` · ${p.duration} s` : ""}</div>
       ${(rec.warnings || []).map(w => `<div class="warn">! ${esc(w)}</div>`).join("")}
-      <div class="row3" style="margin-top:8px">
-        <div><label>Re-process: mode</label><select id="pp_mode"><option>oneshot</option><option>ambience</option><option>loop</option></select></div>
-        <div><label>Duration s</label><input id="pp_duration" type="number" step="0.1" value="${p.duration ?? ""}"></div>
-        <div><label>Hit on frame</label><input id="pp_align" type="number" min="0" value="${p.align_frame ?? ""}" placeholder="none"></div>
-      </div>
-      <div class="row3">
-        <div><label>FPS</label><input id="pp_fps" type="number" step="0.001" value="${p.fps}"></div>
-        <div><label>Reverb</label><select id="pp_reverb"><option>none</option><option>room</option><option>hall</option></select></div>
-        <div><label>Pre-roll ms</label><input id="pp_preroll" type="number" step="0.5" value="${p.preroll_ms}"></div>
-      </div>
-      <div class="btns"><button id="pp_go" data-tip="Re-run trimming, alignment, loudness and reverb on every take of this request from the raw audio: no regeneration.">Re-process</button>
-        <button id="pp_del" data-tip="Delete this request's files from output/. Asks first.">Delete request</button></div>
+      ${isMix ? "" : `<details id="pp"><summary>Adjust timing (all takes)</summary>
+        <div class="row3">
+          <div><label>Hit on frame</label><input id="pp_align" type="number" min="0" value="${p.align_frame ?? ""}" placeholder="start"></div>
+          <div><label>Kind</label><select id="pp_mode"><option value="oneshot">one-shot</option><option value="loop">loop</option><option value="ambience">ambience</option></select></div>
+          <div><label>Length (s)</label><input id="pp_duration" type="number" step="0.1" value="${p.duration ?? ""}"></div>
+        </div>
+        <details><summary>More</summary><div class="row3">
+          <div><label>FPS</label><input id="pp_fps" type="number" step="0.001" value="${p.fps}"></div>
+          <div><label>Reverb</label><select id="pp_reverb"><option>none</option><option>room</option><option>hall</option></select></div>
+          <div><label>Lead-in before hit (ms)</label><input id="pp_preroll" type="number" step="0.5" value="${p.preroll_ms}"></div>
+        </div></details>
+        <div class="btns"><button id="pp_go" data-tip="Re-trims every take from its original audio. No new generation.">Apply to all takes</button></div>
+      </details>`}
+      <details><summary>Request details</summary>
+        <div class="details-body">${esc(rec.cat_id)}_${esc(rec.name)} · ${esc(rec.id)}${rec.gen_s !== undefined ? ` · made in ${rec.gen_s} s, checked in ${rec.score_s} s` : ""}</div>
+        <div class="details-body">${isMix ? "layers: " : "sent: "}${esc(rec.prompt)}</div>
+        ${rec.negative ? `<div class="details-body">avoid: ${esc(rec.negative)}${(rec.ignored || []).includes("negative") ? " (ignored by this engine)" : ""}</div>` : ""}
+        <div class="btns"><button class="link" id="pp_del">Delete these takes…</button></div>
+      </details>
     </div>
-    <div class="takes">${rec.takes.map(t => card(rec, t)).join("")}</div>`;
-  $("pp_mode").value = p.mode; $("pp_reverb").value = p.reverb;
-  $("pp_go").onclick = reprocess;
+    <div class="takes">${kept.map(t => card(rec, t)).join("")}</div>
+    ${!kept.length ? `<p class="small">Every take was rejected: try other words, a longer length, or generate again.</p>` : ""}
+    ${rejected.length ? `<details style="margin-top:12px"><summary>${rejected.length} rejected take${rejected.length > 1 ? "s" : ""}</summary>
+      <div class="takes" style="margin-top:8px">${rejected.map(t => card(rec, t)).join("")}</div></details>` : ""}`;
+  if (!isMix) { $("pp_mode").value = p.mode; $("pp_reverb").value = p.reverb; $("pp_go").onclick = reprocess; }
   $("pp_del").onclick = async () => {
-    if (!await confirmBox(`Delete request ${rec.id} and all its files?`)) return;
-    try { await api("/api/requests/" + rec.id, null, "DELETE"); $("result").innerHTML = ""; history(); } catch (e) { msg(e.message, true); }
+    if (!await confirmBox(`Delete all ${rec.takes.length} take(s) of “${rec.text}”?`)) return;
+    try { await api("/api/requests/" + rec.id, null, "DELETE"); current = null; $("result").innerHTML = ""; history(); } catch (e) { msg(e.message); }
   };
+  markCurrent();
 }
 async function reprocess() {
   const body = {take: current.takes[0].ref, mode: $("pp_mode").value, fps: num("pp_fps"), reverb: $("pp_reverb").value,
                 preroll_ms: num("pp_preroll"), duration: num("pp_duration")};
   Object.keys(body).forEach(k => body[k] === null && delete body[k]);
   body.align_frame = num("pp_align");  // empty sends null: removes an earlier alignment
-  busy(true); msg("Re-processing...");
-  try { show(await api("/api/post", body)); msg(""); } catch (e) { msg(e.message, true); } finally { busy(false); }
+  await withButton($("pp_go"), "Applying…", async () => show(await api("/api/post", body)));
 }
 $("result").addEventListener("click", async e => {
-  const b = e.target.closest("[data-act]"); if (!b) { const img = e.target.closest(".card img"); if (img) { $("big").querySelector("img").src = img.src; $("big").classList.add("on"); } return; }
-  const act = b.dataset.act, ref = b.dataset.ref;
-  if (act === "like") { like = ref; $("likebox").innerHTML = `Next generation: more like <b>${esc(ref)}</b> <button id="unlike">clear</button>`; $("unlike").onclick = () => { like = null; $("likebox").textContent = ""; }; }
-  if (act === "seed") { $("seed").value = b.dataset.seed; $("n").value = 1; msg("Seed set (N = 1)."); }
-  if (act === "vars") { busy(true); msg("Making variations...");
-    try { const t = await api("/api/variations", {take: ref, n: 5}); const i = current.takes.findIndex(x => x.ref === ref); current.takes[i] = {...current.takes[i], variations: t.variations}; show(current); msg(""); }
-    catch (err) { msg(err.message, true); } finally { busy(false); } }
-  if (act === "cap") { busy(true); msg("Captioning...");
-    try { const [c] = await api("/api/caption", {takes: [ref]}); const i = current.takes.findIndex(x => x.ref === ref); current.takes[i].caption = c.caption; show(current); msg(""); }
-    catch (err) { msg(err.message, true); } finally { busy(false); } }
-  if (act === "layer") { if (b.checked) layers[ref] = {gain_db: 0, offset_ms: 0}; else delete layers[ref]; drawLayers(); }
+  const b = e.target.closest("button[data-act]");
+  if (!b) { const img = e.target.closest(".card img"); if (img) { $("big").querySelector("img").src = img.src; $("big").classList.add("on"); } return; }
+  const act = b.dataset.act, ref = b.dataset.ref, rec = current;
+  if (act === "like") { setLike(rec, rec.takes.find(x => x.ref === ref)); $("panel").scrollIntoView({behavior: "smooth"}); }
+  if (act === "seed") { $("seed").value = b.dataset.seed; $("n").value = 1; $("adv").open = true; countAdvanced(); }
+  if (act === "vars") await withButton(b, "Making variations…", async () => {
+    const t = await api("/api/variations", {take: ref, n: 5});
+    const i = rec.takes.findIndex(x => x.ref === ref); rec.takes[i] = {...rec.takes[i], variations: t.variations}; show(rec); });
+  if (act === "cap") await withButton(b, "Captioning…", async () => {
+    const [c] = await api("/api/caption", {takes: [ref]}); rec.takes.find(x => x.ref === ref).caption = c.caption; show(rec); });
+  if (act === "layer") {
+    if (layers[ref]) { removeLayer(ref); return; }  // resets this button too
+    b.classList.add("on"); b.textContent = "✓ In mix";
+    addLayer(rec, rec.takes.find(x => x.ref === ref))
+      .then(() => $("mixer").scrollIntoView({behavior: "smooth", block: "nearest"}))
+      .catch(err => { msg(err.message); b.classList.remove("on"); b.textContent = "Add to mix"; });
+  }
 });
 $("big").onclick = () => $("big").classList.remove("on");
 
-// ---------------------------------------------------------------- layers
-function drawLayers() {
-  const refs = Object.keys(layers);
-  $("layers").innerHTML = refs.length ? `<div class="layer small"><span>take</span><span>gain dB</span><span>offset ms</span></div>` +
-    refs.map(r => `<div class="layer"><span>${esc(r)}</span><input type="number" step="0.5" value="${layers[r].gain_db}" data-l="${r}" data-k="gain_db"><input type="number" step="1" value="${layers[r].offset_ms}" data-l="${r}" data-k="offset_ms"></div>`).join("")
-    : "Tick \"layer\" on takes to mix them.";
+// ---------------------------------------------------------------- mixer
+// Each layer: where its hit (onset) lands on the timeline (offset_ms) and its volume (gain_db).
+// The preview mixes in the browser with Web Audio; Export renders the same mix on the server
+// (POST /api/layer: limiter, loudness, whole frames), whose offsets mean the same thing.
+const LANE_COLORS = ["#4f8cff", "#ff8a3d", "#2fbf71", "#d65cd6", "#e0b100", "#36c2c2", "#ff5d73", "#8f7cff"];
+const OFF_MIN = -1000, OFF_MAX = 4000, LANE_H = 34;
+let order = [], actx = null, playing = [], playStart = 0, raf = 0, view = {t0: -0.2, t1: 2.0};
+
+async function addLayer(rec, t) {
+  if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+  const buf = await (await fetch(`/files/${t.files.wav}`)).arrayBuffer().then(b => actx.decodeAudioData(b));
+  const first = !order.length;
+  layers[t.ref] = {ref: t.ref, name: rec.text || `${rec.cat_id}_${rec.name}`, rank: t.rank, buf, onset_s: t.post?.onset_s || 0,
+                   offset_ms: 0, gain_db: 0, muted: false, color: LANE_COLORS[order.length % LANE_COLORS.length]};
+  order.push(t.ref);
+  if (first) $("mixmode").value = rec.post?.mode || "oneshot";
+  fitView(); drawMixer();
 }
-$("layers").addEventListener("input", e => { const i = e.target; if (i.dataset.l) layers[i.dataset.l][i.dataset.k] = Number(i.value); });
-$("mix").onclick = async () => {
-  const refs = Object.keys(layers); if (refs.length < 1) { msg("Tick \"layer\" on at least one take.", true); return; }
-  busy(true); msg("Mixing...");
-  try { show(await api("/api/layer", {layers: refs.map(r => ({take: r, ...layers[r]})), fps: num("fps") || 24})); msg(""); history(); }
-  catch (e) { msg(e.message, true); } finally { busy(false); }
+function removeLayer(ref) {
+  delete layers[ref]; order = order.filter(r => r !== ref);
+  stopMix(); fitView(); drawMixer();
+  document.querySelectorAll(`[data-act="layer"][data-ref="${CSS.escape(ref)}"]`).forEach(b => { b.classList.remove("on"); b.textContent = "Add to mix"; });
+}
+const startOf = L => L.offset_ms / 1000 - L.onset_s;  // seconds where a layer's audio starts: its hit lands at offset_ms
+function fitView() {
+  const ls = order.map(r => layers[r]); if (!ls.length) return;
+  const s = Math.min(0, ...ls.map(startOf)), e = Math.max(...ls.map(L => startOf(L) + L.buf.duration));
+  view = {t0: s - 0.1, t1: Math.max(e + 0.1, s + 1)};
+}
+const fmtPos = L => { const fr = L.offset_ms / 1000 * fps(); return `${L.offset_ms >= 0 ? "+" : ""}${L.offset_ms} ms · ${fr >= 0 ? "+" : ""}${fr.toFixed(1)} fr`; };
+const fmtVol = L => `${L.gain_db > 0 ? "+" : ""}${L.gain_db} dB`;
+function drawMixer() {
+  $("mixer").hidden = !order.length;
+  $("mixcount").textContent = order.length ? `${order.length} layer${order.length > 1 ? "s" : ""}` : "";
+  $("lanes").innerHTML = order.map(r => { const L = layers[r]; return `
+    <div class="lane ${L.muted ? "muted" : ""}" data-ref="${esc(r)}">
+      <span class="sw" style="background:${L.color}"></span>
+      <span class="nm" title="${esc(r)}">${esc(L.name)} <span class="small">#${L.rank}</span></span>
+      <span><button data-m="solo" data-tip="Play just this layer.">▶</button> <button data-m="mute" data-tip="Leave this layer out of the preview and the export.">${L.muted ? "unmute" : "mute"}</button></span>
+      <div class="sl pos"><button data-m="nudge" data-d="-1" data-tip="One frame earlier.">◀</button>
+        <input type="range" min="${OFF_MIN}" max="${OFF_MAX}" step="1" value="${L.offset_ms}" data-k="offset_ms" data-tip="Move this layer: where its hit lands, in ms. ◀ ▶ move one frame.">
+        <button data-m="nudge" data-d="1" data-tip="One frame later.">▶</button>
+        <span class="val" data-show="pos">${fmtPos(L)}</span></div>
+      <div class="sl"><span class="small">vol</span>
+        <input type="range" min="-30" max="6" step="0.5" value="${L.gain_db}" data-k="gain_db" data-tip="This layer's volume. The export limits and levels the total.">
+        <span class="val" data-show="vol">${fmtVol(L)}</span></div>
+      <button data-m="remove" data-tip="Take this layer out of the mixer.">✕</button>
+    </div>`; }).join("");
+  drawTimeline();
+}
+function drawTimeline(playhead) {
+  const c = $("timeline"), dpr = window.devicePixelRatio || 1;
+  const W = c.clientWidth || 600, H = Math.max(1, order.length) * LANE_H + 18;
+  c.width = W * dpr; c.height = H * dpr; c.style.height = H + "px";
+  const g = c.getContext("2d"); g.scale(dpr, dpr); g.clearRect(0, 0, W, H);
+  const x = t => (t - view.t0) / (view.t1 - view.t0) * W, f = fps(), css = getComputedStyle(document.documentElement);
+  g.font = "10px system-ui"; g.fillStyle = css.getPropertyValue("--muted");
+  const span = (view.t1 - view.t0) * f, every = span > 120 ? 24 : span > 48 ? 12 : 6;
+  for (let k = Math.ceil(view.t0 * f); k <= view.t1 * f; k++) {
+    const xx = x(k / f), strong = k % every === 0;
+    g.strokeStyle = strong ? css.getPropertyValue("--muted") : css.getPropertyValue("--line");
+    g.globalAlpha = 0.55; g.beginPath(); g.moveTo(xx, 14); g.lineTo(xx, H); g.stroke(); g.globalAlpha = 1;
+    if (strong) g.fillText(String(k), xx + 2, 10);
+  }
+  order.forEach((r, i) => {
+    const L = layers[r], y0 = 16 + i * LANE_H, mid = y0 + LANE_H / 2 - 2, d = L.buf.getChannelData(0);
+    const xs = x(startOf(L)), xe = x(startOf(L) + L.buf.duration), amp = (LANE_H / 2 - 4) * Math.min(2, Math.pow(10, L.gain_db / 20));
+    g.globalAlpha = L.muted ? 0.25 : 0.9; g.fillStyle = L.color;
+    for (let px = Math.max(0, Math.floor(xs)); px < Math.min(W, xe); px++) {
+      const a = Math.floor((px - xs) / (xe - xs) * d.length), b = Math.floor((px + 1 - xs) / (xe - xs) * d.length);
+      let m = 0; for (let k = a; k < b; k += Math.max(1, (b - a) >> 5)) m = Math.max(m, Math.abs(d[k] || 0));
+      g.fillRect(px, mid - m * amp, 1, Math.max(1, 2 * m * amp));
+    }
+    g.globalAlpha = 1; g.strokeStyle = L.color; g.beginPath(); g.moveTo(x(L.offset_ms / 1000), y0); g.lineTo(x(L.offset_ms / 1000), y0 + LANE_H - 4); g.stroke();
+  });
+  if (playhead !== undefined) { g.strokeStyle = "red"; g.beginPath(); g.moveTo(x(playhead), 12); g.lineTo(x(playhead), H); g.stroke(); }
+}
+function setLane(ref, k, v) {
+  const L = layers[ref]; if (!L) return;
+  L[k] = k === "offset_ms" ? Math.round(Math.max(OFF_MIN, Math.min(OFF_MAX, v))) : v;
+  const lane = document.querySelector(`.lane[data-ref="${CSS.escape(ref)}"]`);
+  if (lane) {
+    const s = lane.querySelector(`input[data-k="${k}"]`); if (s && Number(s.value) !== L[k]) s.value = L[k];
+    lane.querySelector(`[data-show="${k === "offset_ms" ? "pos" : "vol"}"]`).textContent = k === "offset_ms" ? fmtPos(L) : fmtVol(L);
+  }
+  drawTimeline();
+}
+$("lanes").addEventListener("input", e => { const i = e.target, lane = i.closest(".lane"); if (lane && i.dataset.k) setLane(lane.dataset.ref, i.dataset.k, Number(i.value)); });
+$("lanes").addEventListener("change", () => { fitView(); drawTimeline(); if (playing.length) playMix(); });
+$("lanes").addEventListener("click", e => {
+  const b = e.target.closest("button[data-m]"); if (!b) return;
+  const ref = b.closest(".lane").dataset.ref, L = layers[ref];
+  if (b.dataset.m === "remove") removeLayer(ref);
+  if (b.dataset.m === "mute") { L.muted = !L.muted; drawMixer(); if (playing.length) playMix(); }
+  if (b.dataset.m === "solo") playMix([ref]);
+  if (b.dataset.m === "nudge") { setLane(ref, "offset_ms", L.offset_ms + Number(b.dataset.d) * 1000 / fps()); fitView(); drawTimeline(); }
+});
+let drag = null;  // drag a layer along the timeline
+$("timeline").addEventListener("pointerdown", e => {
+  const c = $("timeline"), r = c.getBoundingClientRect(), i = Math.floor((e.clientY - r.top - 16) / LANE_H);
+  if (i < 0 || i >= order.length) return;
+  drag = {ref: order[i], x0: e.clientX, off0: layers[order[i]].offset_ms, sPerPx: (view.t1 - view.t0) / r.width};
+  c.setPointerCapture(e.pointerId);
+});
+$("timeline").addEventListener("pointermove", e => { if (drag) setLane(drag.ref, "offset_ms", drag.off0 + (e.clientX - drag.x0) * drag.sPerPx * 1000); });
+$("timeline").addEventListener("pointerup", () => { if (!drag) return; drag = null; fitView(); drawTimeline(); if (playing.length) playMix(); });
+
+function stopMix() { playing.forEach(s => { try { s.stop(); } catch (e) {} }); playing = []; cancelAnimationFrame(raf); if (order.length) drawTimeline(); }
+function playMix(only) {
+  stopMix(); if (!actx || !order.length) return;
+  actx.resume();
+  const ls = (only || order).map(r => layers[r]).filter(L => only || !L.muted); if (!ls.length) return;
+  // A soft limiter on the preview, so a loud stack doesn't clip the speakers (the export uses the real one).
+  const lim = actx.createDynamicsCompressor();
+  lim.threshold.value = -3; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.002; lim.release.value = 0.08;
+  lim.connect(actx.destination);
+  const s0 = Math.min(...ls.map(startOf)), t0 = actx.currentTime + 0.05;
+  let end = 0;
+  for (const L of ls) {
+    const src = actx.createBufferSource(), gn = actx.createGain();
+    src.buffer = L.buf; gn.gain.value = Math.pow(10, L.gain_db / 20);
+    src.connect(gn).connect(lim); src.start(t0 + startOf(L) - s0);
+    end = Math.max(end, startOf(L) - s0 + L.buf.duration); playing.push(src);
+  }
+  playStart = t0;
+  const tick = () => { const t = actx.currentTime - playStart; if (t > end) { stopMix(); return; }
+                       drawTimeline(s0 + Math.max(0, t)); raf = requestAnimationFrame(tick); };
+  raf = requestAnimationFrame(tick);
+}
+$("mixplay").onclick = () => playMix();
+$("mixstop").onclick = stopMix;
+$("mixclear").onclick = () => [...order].forEach(removeLayer);
+window.addEventListener("resize", () => order.length && drawTimeline());
+$("mixexport").onclick = async () => {
+  const ls = order.map(r => layers[r]).filter(L => !L.muted);
+  if (!ls.length) { msg("Nothing to export: every layer is muted."); return; }
+  const name = $("mixname").value.trim();
+  if (name && !/^[A-Za-z0-9]+$/.test(name)) { msg("The file name takes letters and digits only."); return; }
+  const body = {layers: ls.map(L => ({take: L.ref, gain_db: L.gain_db, offset_ms: L.offset_ms})), mode: $("mixmode").value, fps: fps()};
+  if (name) body.name = name;
+  await withButton($("mixexport"), "Rendering…", async () => {
+    const rec = await api("/api/layer", body), t = rec.takes[0];
+    $("mixout").innerHTML = `<div class="chips">${chipsFor(rec, t)}</div>
+      ${(t.warnings || []).map(w => `<div class="warn">! ${esc(w)}</div>`).join("")}
+      <audio controls src="/files/${t.files.wav}?v=${Date.now()}"></audio>
+      <div class="btns"><a class="button primary" href="/files/${t.files.wav}" download="${esc(fileName(rec, 1))}">⬇ Download ${esc(fileName(rec, 1))}</a></div>
+      <details><summary>Details</summary><div class="details-body">${esc(t.paths.wav)}</div>
+        <img src="/files/${t.files.png}?v=${Date.now()}" alt="the exported mix"></details>`;
+    history();
+  });
 };
 
-// ---------------------------------------------------------------- history, status
+// ---------------------------------------------------------------- recent, status
+function ago(id) {
+  const m = /^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})/.exec(id); if (!m) return "";
+  const s = (Date.now() - new Date(+m[1], m[2] - 1, +m[3], +m[4], +m[5], +m[6])) / 1000;
+  return s < 90 ? "just now" : s < 3600 ? `${Math.round(s / 60)} min ago` : s < 86400 ? `${Math.round(s / 3600)} h ago` : `${Math.round(s / 86400)} d ago`;
+}
 async function history() {
   try { const h = await api("/api/requests?limit=30");
-    $("history").innerHTML = h.map(r => `<div data-id="${r.id}">${esc(r.name)} <span class="small">${esc(r.engine)} · ${r.takes} · ${esc(r.id)}</span></div>`).join("") || "<span class='small'>nothing yet</span>"; } catch (e) {}
+    $("history").innerHTML = h.map(r => `<div data-id="${r.id}" data-text="${esc(r.kind === "layer" ? "" : r.text)}">
+      <span>${esc(r.text || r.name)} ${r.kind === "layer" ? `<span class="tag">mix</span>` : ""}</span><span class="when">${ago(r.id)}</span></div>`).join("")
+      || "<span class='small'>nothing yet</span>";
+    markCurrent();
+  } catch (e) {}
 }
-$("history").addEventListener("click", async e => { const d = e.target.closest("[data-id]"); if (!d) return;
-  try { show(await api("/api/requests/" + d.dataset.id)); } catch (err) { msg(err.message, true); } });
+function markCurrent() { document.querySelectorAll("#history [data-id]").forEach(d => d.classList.toggle("cur", d.dataset.id === current?.id)); }
+$("history").addEventListener("click", async e => {
+  const d = e.target.closest("[data-id]"); if (!d || isBusy) return;
+  if (d.dataset.text) { $("text").value = d.dataset.text; preview(); }
+  try { show(await api("/api/requests/" + d.dataset.id)); } catch (err) { msg(err.message); }
+});
 async function status() {
-  try { const h = await api("/api/health");
-    $("status").textContent = `engines: ${Object.entries(h.engines).map(([k, v]) => k + (v ? " ✓" : " –")).join(", ")} · VRAM ${h.vram_used_gb}/${h.vram_total_gb} GB` + (h.busy ? " · busy" : "");
-  } catch (e) { $("status").textContent = "server not reachable"; }
+  const s = $("status");
+  try {
+    const h = await api("/api/health");
+    s.textContent = h.busy ? "Busy" : "Ready"; s.className = h.busy ? "busy" : "ready";
+    s.dataset.tip = `Fast engine: ${h.engines.sa3 ? "loaded" : "not loaded yet"}. Slow engine: ${h.engines.moss ? "loaded" : "not loaded yet (loads on first use, ~75 s)"}. GPU memory ${h.vram_used_gb} of ${h.vram_total_gb} GB.`;
+  } catch (e) { s.textContent = "Server not reachable"; s.className = "down"; s.dataset.tip = "Start it with start.cmd."; }
 }
 (async () => {
   try {
-    for (const c of await api("/api/categories")) $("category").insertAdjacentHTML("beforeend", `<option value="${c.key}">${c.key} (${c.cat_id})</option>`);
+    for (const c of await api("/api/categories")) $("category").insertAdjacentHTML("beforeend", `<option value="${c.key}">${c.key.replace(/-/g, " ")}</option>`);
     settings = await api("/api/settings"); applySettings(settings.effective);
-  } catch (e) { msg(e.message, true); }
-  status(); history(); setInterval(status, 5000);
+  } catch (e) { msg(e.message); }
+  setMode(""); status(); history(); setInterval(status, 5000);
 })();
 </script>
 </body>
