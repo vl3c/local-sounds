@@ -25,6 +25,7 @@ textarea { resize:vertical; min-height:58px; }
 .check input { width:auto; }
 button { padding:7px 12px; border:1px solid var(--line); border-radius:6px; background:var(--bg); cursor:pointer; }
 button.primary { background:var(--acc); border-color:var(--acc); color:#fff; font-weight:600; }
+button.wide { width:100%; padding:9px 12px; }
 button:disabled { opacity:.5; cursor:wait; }
 .btns { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
 .preview { font-size:12px; color:var(--muted); margin-top:6px; white-space:pre-wrap; word-break:break-word; }
@@ -89,9 +90,7 @@ dialog::backdrop { background:rgba(0,0,0,.35); }
   <label class="check" data-tip="CLAP (does it match the prompt?) and Audiobox Aesthetics (production quality) scores. Signal checks always run."><input type="checkbox" id="check"> Model scores</label>
   <label class="check" data-tip="Also describe the best take with the audio captioner (loads a 2.8 GB model for a few seconds; must be downloaded)."><input type="checkbox" id="caption"> Caption the best take</label>
   <div class="btns">
-    <button class="primary" id="go" data-tip="Generate N takes, check and rank them (Ctrl+Enter).">Generate</button>
-    <button id="save" data-tip="Store these settings in config.local.json: the page and every agent request that leaves them out will use them. Asks first.">Save as my defaults</button>
-    <button id="reset" data-tip="Delete config.local.json and go back to the repo's built-in defaults. Asks first.">Reset to built-in</button>
+    <button class="primary wide" id="go" data-tip="Generate N takes, check and rank them (Ctrl+Enter).">Generate</button>
   </div>
   <div id="likebox" class="small"></div>
   <div id="msg"></div>
@@ -102,6 +101,13 @@ dialog::backdrop { background:rgba(0,0,0,.35); }
 
   <h2>Recent</h2>
   <div class="history" id="history"></div>
+
+  <h2>My defaults</h2>
+  <div class="small">The settings above that every new page and every agent request start from.</div>
+  <div class="btns">
+    <button id="save" data-tip="Store these settings in config.local.json: the page and every agent request that leaves them out will use them. Asks first.">Save as my defaults</button>
+    <button id="reset" data-tip="Delete config.local.json and go back to the repo's built-in defaults. Asks first.">Reset to built-in</button>
+  </div>
 </section>
 
 <section>
