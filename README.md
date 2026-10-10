@@ -17,10 +17,10 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1 -AcceptModelLicenses   # 
 .venv\Scripts\python.exe scripts\sfx.py "sword hit on a shield" --out D:\anim\sfx
 ```
 
-> **Licences, plainly.** This repo's code is MIT. The engine, **Stable Audio 3, is under the
-> Stability AI Community License: free for personal, research and non-commercial use, and for
-> commercial use while you (with your affiliates) make under US $1M a year, after registering
-> with Stability AI.** You own the sounds you make. Details in
+> **Licences, plainly.** This repo's code is MIT. Its engines, **Stable Audio 3 Small-SFX and the
+> optional Medium, are under the Stability AI Community License: free for personal, research
+> and non-commercial use, and for commercial use while you (with your affiliates) make under
+> US $1M a year, after registering with Stability AI.** You own the sounds you make. Details in
 > [LICENSE-MODELS.md](LICENSE-MODELS.md); `-AcceptModelLicenses` says you've read it. Powered by
 > Stability AI.
 >
@@ -89,16 +89,30 @@ Any other agent can use the CLI (`scripts/sfx.py`, standard library only) or the
 
 ### Engines
 
-The engine has its own venv and runs as a child process of the server (`server/workers/`), so
-its pinned dependencies (Stable Audio 3 pins torch 2.7 and transformers 5) stay apart from the
-server's, and another engine could be added beside it. Both venvs use CUDA 12.8 wheels, the
-oldest that support RTX 50-series (Blackwell, sm_120) cards.
+Engines run in their own venv as child processes of the server (`server/workers/`), so their
+pinned dependencies (Stable Audio 3 pins torch 2.7 and transformers 5) stay apart from the
+server's. Both venvs use CUDA 12.8 wheels, the oldest that support RTX 50-series (Blackwell,
+sm_120) cards.
 
 **sa3: Stable Audio 3 Small-SFX** (May 2026), a 433M DiT with a T5Gemma text encoder, a 3.3 GB
 download. ~0.5 s a take (8 steps) on an RTX 5080, warm, in ~2.5 GB of VRAM; 44.1 kHz stereo
 (resampled to 48 kHz), up to 120 s; audio-to-audio ("more like this") supported. This
 post-trained checkpoint ignores negative prompts and CFG (Stability's docs), so they aren't
-offered. Licence: Stability AI Community License (gated).
+offered. Licence: Stability AI Community License (gated). The default.
+
+**medium: Stable Audio 3 Medium** (optional), Stability's general model (music, stems and SFX).
+It tied Small-SFX by ear on sound effects (9-9, see "Bake-off results"), winning different
+prompts: a second voice for when sa3's takes keep missing. ~0.43 s a take, ~6 GB of VRAM on top
+of sa3's (~10 GB free needed while it loads, which the server checks before loading it: it
+refuses rather than page), loads in ~45 s on first use. Same library, venv and licence as sa3,
+run without FlashAttention 2 (the library's chunked-SDPA path). It's offered only when its
+weights are found:
+
+- in this install's `models\sa3-medium` (`.venv\Scripts\python.exe scripts\download_models.py
+  --accept-licenses --only sa3-medium`, ~10 GB; `install.ps1` never fetches it), or
+- in `models\sa3-medium` of a sibling repository (another tool next to this one that already has
+  it, e.g. a music generator), used in place: no second copy. It must be the revision
+  `models.lock.json` pins (checked by size). `sfx.py --engines` and `/api/engines` show where.
 
 **The bake-off** (`scripts/bakeoff.py --engines sa3,<other>`): 22 animation-style prompts
 (impacts on metal, wood, glass and stone; a punch; whooshes; UI blips; footsteps on gravel, wood

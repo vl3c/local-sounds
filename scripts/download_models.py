@@ -8,6 +8,7 @@ the same drive (no extra space) or copied, then verified like any download.
 
     python scripts/download_models.py --accept-licenses                   # everything not marked optional
     python scripts/download_models.py --accept-licenses --only captioner  # one repo, by name
+    python scripts/download_models.py --accept-licenses --only sa3-medium  # the optional Medium engine
     python scripts/download_models.py --verify                            # check what's there, download nothing
     python scripts/download_models.py --accept-licenses --reuse <another install>/models
 
@@ -188,8 +189,9 @@ def main() -> int:
     names = {e["name"] for e in entries}
     if args.only and (bad := set(args.only) - names):
         ap.error(f"unknown repo name(s) {sorted(bad)}; choose from {sorted(names)}")
+    # "on_request" repos (the optional Medium engine, ~10 GB) only come when named with --only.
     todo = [e for e in entries if (e["name"] in args.only if args.only else
-                                   (args.with_optional or not e.get("optional")))]
+                                   (args.with_optional or not e.get("optional")) and not e.get("on_request"))]
     lock = load_lock()
     failed = []
     for e in todo:

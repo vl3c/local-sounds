@@ -15,13 +15,41 @@ import protocol  # noqa: F401  (first: takes stdout for the protocol)
 
 import json
 import math
+import sys
 from pathlib import Path
 
 from protocol import MODELS, log, serve
 
-NAME = "sa3"
-MODEL_DIR = MODELS / "sa3-small-sfx"
-MAX_DURATION = 120.0
+# One model per process: `sa3_worker.py [sa3|medium] [model folder]`. sa3 is Small-SFX (the
+# default), medium the general Medium model. Both use the same library, venv and T5Gemma encoder.
+# The server passes the folder it found the weights in (it may be another tool's copy).
+SPECS = {
+    "sa3": {"dir": "sa3-small-sfx", "model": "stable-audio-3-small-sfx", "max_duration": 120.0},
+    "medium": {"dir": "sa3-medium", "model": "stable-audio-3-medium", "max_duration": 380.0},
+}
+NAME = sys.argv[1] if len(sys.argv) > 1 else "sa3"
+SPEC = SPECS[NAME]
+MODEL_DIR = Path(sys.argv[2]) if len(sys.argv) > 2 else MODELS / SPEC["dir"]
+MAX_DURATION = SPEC["max_duration"]
+# Medium decodes right up to full scale and generate() clamps to [-1, 1]: ~0.05% of samples came
+# out pinned at the rail. Its decoder output is scaled down by this before
+# the clamp and back up after; post-processing sets the level anyway.
+HEADROOM = 0.25 if NAME == "medium" else 1.0
+
+
+def _no_flex_without_triton() -> None:
+    """Medium's autoencoder uses sliding-window attention. Without Triton (none on Windows by
+    default) torch can't compile flex_attention and falls back to eager flex attention, which
+    materialises the whole score matrix; skip it, so the library uses its chunked SDPA path
+    (same maths, linear memory). FlashAttention 2 isn't needed this way."""
+    try:
+        import triton  # noqa: F401
+        return
+    except ImportError:
+        pass
+    from stable_audio_3.models import transformer
+    transformer.flex_attention_compiled = None
+    log(NAME, "no Triton: sliding-window attention runs as chunked SDPA")
 
 
 def load():
@@ -29,6 +57,8 @@ def load():
     from stable_audio_3.loading_utils import load_diffusion_cond
     from stable_audio_3.model import StableAudioModel
 
+    if NAME == "medium":
+        _no_flex_without_triton()
     cfg = json.loads((MODEL_DIR / "model_config.json").read_text(encoding="utf-8"))
     for c in cfg["model"]["conditioning"]["configs"]:
         if c.get("type") == "t5gemma":
@@ -37,13 +67,16 @@ def load():
             c["config"]["model_path"] = str(MODEL_DIR / "t5gemma-b-b-ul2")
     model = load_diffusion_cond(cfg, str(MODEL_DIR / "model.safetensors"), device="cuda", model_half=True)
     model.use_lora, model.lora_names = False, []
+    if HEADROOM != 1.0:
+        decode = model.pretransform.decode
+        model.pretransform.decode = lambda *a, **k: decode(*a, **k) * HEADROOM
     sam = StableAudioModel(model, cfg, "cuda", True)
     # The first generation pays for CUDA kernel selection and allocator growth (~50 s
     # measured); a tiny one here moves that into startup.
     sam.generate(prompt="a short click", duration=1.0, steps=2, seed=0, batch_size=1)
     torch.cuda.empty_cache()
     sr = int(cfg["sample_rate"])
-    return sam, {"engine": NAME, "model": "stable-audio-3-small-sfx", "sample_rate": sr,
+    return sam, {"engine": NAME, "model": SPEC["model"], "sample_rate": sr,
                  "channels": int(cfg.get("audio_channels", 2)), "max_duration": MAX_DURATION,
                  "default_steps": 8, "features": ["init_audio", "seed"],
                  "ignores": ["negative", "cfg"]}
@@ -70,7 +103,7 @@ def handle(sam, req: dict) -> dict:
                   seed=int(seed) % 2**31, batch_size=1)
         if init is not None:
             kw.update(init_audio=init, init_noise_level=float(req.get("init_strength", 0.5)))
-        audio = sam.generate(**kw)  # (1, C, T) float32 in [-1, 1]
+        audio = sam.generate(**kw) / HEADROOM  # (1, C, T) float32
         path = out_dir / f"{req['stem']}_{seed}.wav"
         sf.write(str(path), audio[0].float().cpu().numpy().T, sr, subtype="FLOAT")
         files.append({"seed": seed, "path": str(path)})

@@ -10,7 +10,7 @@ and they stay under their own licences. `install.ps1 -AcceptModelLicenses` (or
 This is a plain-language summary, not legal advice; the licence texts decide. Stable Audio 3's
 is in `models/sa3-small-sfx/LICENSE.md` after install, and at <https://stability.ai/license>.
 
-- **Sounds made with Stable Audio 3** (the engine), under the Stability AI Community
+- **Sounds made with Stable Audio 3** (Small-SFX, and the optional Medium), under the Stability AI Community
   License:
   - **Personal, hobby, research and other non-commercial use is free.**
   - **Commercial use is free too, while you and your affiliates together make less than
@@ -34,6 +34,7 @@ is in `models/sa3-small-sfx/LICENSE.md` after install, and at <https://stability
 | Component | Source | Licence | What it means here |
 |---|---|---|---|
 | Stable Audio 3 Small-SFX weights | [stabilityai/stable-audio-3-small-sfx](https://huggingface.co/stabilityai/stable-audio-3-small-sfx) (gated) | [Stability AI Community License](https://stability.ai/license) (copy in `models/sa3-small-sfx/LICENSE.md` after install) | See above. Not OSI open source. You accept it on Hugging Face before downloading. |
+| Stable Audio 3 Medium weights (optional) | [stabilityai/stable-audio-3-medium](https://huggingface.co/stabilityai/stable-audio-3-medium) (gated) | Stability AI Community License | The optional `medium` engine; same terms as Small-SFX ("What this means for you" applies to its sounds too). Fetched only on request, or used from another tool's copy. |
 | T5Gemma text encoder (bundled with SA3) | Google | [Gemma Terms of Use](https://ai.google.dev/gemma/terms) (`models/sa3-small-sfx/LICENSE_GEMMA.md`) | Covers the encoder inside the SA3 download, including Gemma's prohibited-use policy. |
 | stable-audio-3 inference code | [Stability-AI/stable-audio-3](https://github.com/Stability-AI/stable-audio-3) (cloned into `engine/`) | MIT | |
 | CLAP (larger_clap_general) | [laion/larger_clap_general](https://huggingface.co/laion/larger_clap_general) | Apache-2.0 | Used only to score takes against their prompt. |

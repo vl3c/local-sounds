@@ -24,6 +24,25 @@
       ]
     },
     {
+      "name": "sa3-medium",
+      "repo": "stabilityai/stable-audio-3-medium",
+      "revision": "d4d3579395a8ac0df4ab13b5b1d7138ce7290f81",
+      "role": "optional engine: Stable Audio 3 Medium (44.1 kHz stereo, 8 steps); fetched only with --only sa3-medium",
+      "licence": "Stability AI Community License (+ Gemma Terms for T5Gemma)",
+      "gated": true,
+      "gb": 10.44,
+      "optional": true,
+      "on_request": true,
+      "files": [
+        "model.safetensors",
+        "model_config.json",
+        "t5gemma-b-b-ul2/*",
+        "LICENSE.md",
+        "LICENSE_GEMMA.md",
+        "NOTICE"
+      ]
+    },
+    {
       "name": "clap",
       "repo": "laion/larger_clap_general",
       "revision": "ada0c23a36c4e8582805bb38fec3905903f18b41",

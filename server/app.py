@@ -98,15 +98,74 @@ _file_lock = threading.Lock()  # settings and votes: small files that mustn't wa
 
 # --------------------------------------------------------------------------- engines
 
+# load_gb: free GPU memory an engine needs to load (its peak while loading, measured on an
+# RTX 5080); the server won't start it with less, rather than let the driver silently page.
 ENGINES = {
-    "sa3": {"venv": ".venv-sa3", "script": "sa3_worker.py", "weights": "sa3-small-sfx/model.safetensors",
+    "sa3": {"venv": ".venv-sa3", "script": "sa3_worker.py", "args": ["sa3"], "dir": "sa3-small-sfx", "load_gb": 3.0,
             "label": "Stable Audio 3 Small-SFX"},
+    # Optional: Stable Audio 3 Medium, Stability's general model (music, stems and SFX). It tied
+    # Small-SFX by ear in the SFX bake-off (README), at 1.4x the time and ~6 GB of VRAM (~10 GB
+    # while loading). Same library, venv and worker. Its 10 GB of weights are often already on
+    # the machine for a music tool, so a sibling repository's copy is used where there is one.
+    "medium": {"venv": ".venv-sa3", "script": "sa3_worker.py", "args": ["medium"], "dir": "sa3-medium",
+               "load_gb": 10.0, "shared": True, "label": "Stable Audio 3 Medium"},
 }
+# What a usable SA3 model folder holds (the checkpoint, its config and the text encoder).
+MODEL_FILES = ("model.safetensors", "model_config.json", "t5gemma-b-b-ul2/model.safetensors")
+
+
+def _locked_size(folder: str) -> int | None:
+    """The checkpoint's size pinned in models.lock.json, if it's there."""
+    try:
+        lock = json.loads((REPO / "models.lock.json").read_text(encoding="utf-8"))
+        return next(f["bytes"] for f in lock[folder]["files"] if f["path"] == "model.safetensors")
+    except (OSError, ValueError, KeyError, StopIteration):
+        return None
+
+
+def model_dir(name: str) -> Path | None:
+    """Where an engine's weights are, or None: models/<dir> in this install, else (for a shared
+    engine) <sibling repository>/models/<dir> next to it, e.g. a music tool's copy of Medium.
+    A folder counts only if it has every MODEL_FILES file and, when models.lock.json pins the
+    checkpoint, a checkpoint of exactly that size (the same revision, not a different one)."""
+    e = ENGINES[name]
+    candidates = [MODELS / e["dir"]]
+    if e.get("shared"):
+        try:
+            candidates += sorted(d / "models" / e["dir"] for d in REPO.parent.iterdir()
+                                 if d.is_dir() and d.resolve() != REPO)
+        except OSError:
+            pass
+    size = _locked_size(e["dir"])
+    for c in candidates:
+        try:
+            if all((c / f).is_file() for f in MODEL_FILES) and \
+                    (size is None or (c / "model.safetensors").stat().st_size == size):
+                return c
+        except OSError:
+            continue
+    return None
 
 
 def engine_installed(name: str) -> bool:
+    return (REPO / ENGINES[name]["venv"] / "Scripts" / "python.exe").is_file() and model_dir(name) is not None
+
+
+def _not_installed(name: str) -> str:
     e = ENGINES[name]
-    return (REPO / e["venv"] / "Scripts" / "python.exe").is_file() and (MODELS / e["weights"]).is_file()
+    if e.get("shared"):
+        return (f"{e['label']} isn't available: no weights in models/{e['dir']} or in a sibling repository's "
+                f"models/{e['dir']}. To add them (~10 GB): scripts/download_models.py --accept-licenses "
+                f"--only {e['dir']}")
+    return f"engine {name!r} isn't installed: re-run install.ps1"
+
+
+def _gpu_free_gb() -> float | None:
+    try:
+        import torch
+        return torch.cuda.mem_get_info()[0] / 2**30 if torch.cuda.is_available() else None
+    except Exception:
+        return None
 
 
 class Worker:
@@ -116,15 +175,21 @@ class Worker:
     JOB_TIMEOUT = 1800.0
 
     def __init__(self, name: str):
-        if not engine_installed(name):
-            raise HTTPException(503, f"engine {name!r} isn't installed: re-run install.ps1")
+        folder = model_dir(name)
+        if folder is None or not (REPO / ENGINES[name]["venv"] / "Scripts" / "python.exe").is_file():
+            raise HTTPException(503, _not_installed(name))
         e = ENGINES[name]
+        free = _gpu_free_gb()
+        if free is not None and free < e["load_gb"]:
+            raise HTTPException(503, f"{e['label']} needs ~{e['load_gb']:g} GB of free GPU memory to load, and "
+                                     f"{free:.1f} GB is free: another program holds the GPU. Free it first.")
         self.name = name
         t0 = time.time()
         # The worker's stderr (its logs, progress bars) goes through this process's log
         # and console filter, like everything else the server prints.
         self.proc = subprocess.Popen(
-            [str(REPO / e["venv"] / "Scripts" / "python.exe"), str(Path(__file__).parent / "workers" / e["script"])],
+            [str(REPO / e["venv"] / "Scripts" / "python.exe"), str(Path(__file__).parent / "workers" / e["script"]),
+             *e.get("args", []), str(folder)],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=str(REPO),
             text=True, encoding="utf-8", errors="replace", bufsize=1)
         # Reader threads, so a hung worker times out instead of holding _lock forever,
@@ -140,7 +205,8 @@ class Worker:
             self.close()
             raise
         self.info = hello
-        print(f"[local-sounds] {e['label']} ready in {time.time() - t0:.1f}s", flush=True)
+        print(f"[local-sounds] {e['label']} ready in {time.time() - t0:.1f}s"
+              + ("" if folder.parent == MODELS else f" (weights from {folder})"), flush=True)
 
     def _pump(self) -> None:
         for line in self.proc.stdout:
@@ -272,7 +338,7 @@ Mode = Literal["oneshot", "ambience", "loop"]
 class Settings(BaseModel):
     """What can be saved. Omitted keys fall back to the repo defaults; seed null = random."""
     model_config = {"extra": "forbid"}
-    engine: Literal["sa3"] | None = None
+    engine: Literal["sa3", "medium"] | None = None
     n: int | None = Field(None, ge=1, le=16)
     seed: int | None = Field(None, ge=0, lt=2**31)
     steps: int | None = Field(None, ge=1, le=250)
@@ -356,7 +422,7 @@ class GenReq(PostFields):
     n: int | None = Field(None, ge=1, le=16)
     seed: int | None = Field(None, ge=0, lt=2**31)  # omitted: the saved default (random unless saved); null: random
     seeds: list[int] | None = Field(None, max_length=16)
-    engine: Literal["sa3"] | None = None
+    engine: Literal["sa3", "medium"] | None = None
     steps: int | None = Field(None, ge=1, le=250)
     like: str | None = None                         # "<request id>:<seed>": more like that take
     like_strength: float | None = Field(None, ge=0.05, le=1.0)
@@ -556,6 +622,8 @@ def generate(req: GenReq):
     mode = req.mode or cat.mode
     duration = req.duration or cat.duration
     engine = opt["engine"]
+    if req.engine is None and engine != REPO_DEFAULTS["engine"] and not engine_installed(engine):
+        engine = REPO_DEFAULTS["engine"]  # a saved default whose weights have gone: don't fail every request
     if req.seeds:
         seeds = list(req.seeds)
     else:
@@ -865,7 +933,8 @@ def categories():
 
 @app.get("/api/engines")
 def engines():
-    return {k: {"label": e["label"], "installed": engine_installed(k),
+    dirs = {k: model_dir(k) for k in ENGINES}
+    return {k: {"label": e["label"], "installed": engine_installed(k), "weights": str(dirs[k]) if dirs[k] else None,
                 "running": k in _workers and _workers[k].alive(),
                 "info": _workers[k].info if k in _workers and _workers[k].alive() else None}
             for k, e in ENGINES.items()}

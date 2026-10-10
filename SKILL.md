@@ -131,7 +131,7 @@ server's full response (plus `delivered`): parse that rather than the text.
 |---|---|
 | `--duration S` | One-shots: the most it may last (trimmed to the actual sound, then padded to whole frames). Ambiences and loops: exactly this. Default: the category's (0.5-4 s one-shots, 10 s ambiences). |
 | `--n N` / `--seed N\|random` / `--seeds a,b` | Best-of-N on seeds seed, seed+1, ... (random start by default). `--seeds 1234 --n 1` remakes one take exactly. |
-| `--engine sa3` | The engine; sa3 is the only one for now (see "Engines" below). |
+| `--engine sa3\|medium` | sa3 by default; medium is optional (see "Engines" below). |
 | `--mode oneshot\|ambience\|loop`, `--loop` | Default: the category's (ambiences default to `loop`). |
 | `--align-frame F --fps R` / `--no-align` | Put the transient exactly on frame F (one-shots); `--no-align` (with `--post`) removes it. Default fps 24 (2000 samples a frame at 48 kHz; 30 fps 1600; 60 fps 800). Without it the hit sits at 3 ms (the pre-roll). |
 | `--preroll MS` | Silence before the transient, default 3 ms (2-5 is usual). |
@@ -199,9 +199,19 @@ $PY $S --batch <dir>/film.json --out <dir>              # runs them; one line pe
 
 ### Engines
 
-sa3, Stable Audio 3 Small-SFX, is the engine: ~0.5 s a take on an RTX 5080; 44.1 kHz stereo
+sa3, Stable Audio 3 Small-SFX, is the default: ~0.5 s a take on an RTX 5080; 44.1 kHz stereo
 (resampled to 48 kHz); up to 120 s; more like this (`--like`) works. It ignores negative
 prompts and CFG, so they aren't offered. Licence: Stability AI Community.
+
+**medium**, Stable Audio 3 Medium, is optional: `--engines` says whether it's installed (its
+weights may come from another tool's folder next to this one). It tied sa3 by ear in a blind
+bake-off (9-9), winning different prompts: sword clash, rock fall, zoom whoosh, gravel and wood
+footsteps, small creature, robot power-up, cartoon boing; sa3 won crate, punch, sword whoosh,
+UI confirm, magic, sci-fi door, dragon, rain. So try `--engine medium` when sa3's takes keep
+missing, or deliver one take of each and let the user pick. It needs ~6 GB more VRAM (~10 GB
+free to load; the server refuses with a message if the GPU is too full: ask the user before
+freeing it) and loads in ~45 s the first time. Don't compare scores across engines: within a
+request they rank takes; across engines the ear disagreed with them on 10 of 18 prompts.
 
 ## 3. Prompting
 
