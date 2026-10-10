@@ -88,8 +88,10 @@ in its own visible console window titled "local-sounds server - close this windo
 waits until it's ready (SA3 ~25 s; MOSS loads on its first request, ~75 s more) and carries on.
 It won't start it while another program holds over 4 GB of GPU memory: it exits 1 saying how
 much is in use. Then **ask the user** before stopping that program (with its own stop command,
-never by killing processes); `--start-anyway` only if they say to run both. The same start by
-hand, e.g. with both engines loaded at once:
+never by killing processes); `--start-anyway` only if they say to run both. If the `local-gpu`
+skill is installed, `python ~/.claude/skills/local-gpu/gpu.py switch local-sounds` does this: it
+shows what holds the GPU, stops it after the user confirms, and starts this server. The same
+start by hand, e.g. with both engines loaded at once:
 
 ```bash
 cmd //c "$(cygpath -w ~/.claude/skills/local-sounds/start.cmd)" --no-browser --engines sa3,moss
