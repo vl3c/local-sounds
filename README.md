@@ -13,16 +13,28 @@ accounts, no cloud: prompts and audio never leave the machine. Sound effects onl
 music or speech.
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\install.ps1   # ~20 GB download, ~35 GB on disk
-.\start.cmd                                              # opens http://127.0.0.1:8191/
-python scripts\sfx.py "sword hit on a shield" --out D:\anim\sfx
+powershell -ExecutionPolicy Bypass -File .\install.ps1 -AcceptModelLicenses   # ~20 GB download, ~35 GB on disk
+.\start.cmd                                                                  # opens http://127.0.0.1:8191/
+.venv\Scripts\python.exe scripts\sfx.py "sword hit on a shield" --out D:\anim\sfx
 ```
+
+> **Licences, plainly.** This repo's code is MIT. The default engine, **Stable Audio 3, is
+> under the Stability AI Community License: free for personal, research and non-commercial
+> use, and for commercial use while you (with your affiliates) make under US $1M a year, after
+> registering with Stability AI.** You own the sounds you make. MOSS-SoundEffect
+> (`--engine moss`) is Apache-2.0, with no conditions on its sounds. Details in
+> [LICENSE-MODELS.md](LICENSE-MODELS.md); `-AcceptModelLicenses` says you've read it. Powered by
+> Stability AI.
+>
+> **Windows 10/11 and an NVIDIA GPU (16 GB for both engines, ~4 GB for the default one) are
+> required.**
 
 ## For AI agents (Claude Code skill)
 
-`SKILL.md` is a Claude Code skill: how to start, check and stop the server, prompt recipes per
-category, how to read the scores and the spectrogram, and how to deliver to a folder. `install.ps1`
-links the repo into your personal skills folder (a junction, so it follows the repo):
+`SKILL.md` is a Claude Code skill: prompt recipes per category, how to read the scores and the
+spectrogram, cue sheets, and how to deliver to a folder. If Claude Code is installed (there is a
+`~\.claude` folder), `install.ps1` links the repo into your personal skills folder (a junction,
+so it follows the repo); by hand:
 
 ```powershell
 New-Item -ItemType Junction -Path "$env:USERPROFILE\.claude\skills\local-sounds" -Target (Resolve-Path .).Path
@@ -108,23 +120,36 @@ both engines, scored by the automatic checks, then a blind A/B page
 
 | | |
 |---|---|
-| OS | Windows 10 / 11 |
-| GPU | NVIDIA with 16 GB for both engines at once (~14 GB peak); SA3 alone needs ~4 GB with the checkers. RTX 50-series supported (CUDA 12.8 wheels) |
+| OS | Windows 10 / 11 (the scripts are `.cmd` and PowerShell) |
+| GPU | NVIDIA with 16 GB for both engines at once (~14 GB peak); SA3 alone needs ~4 GB with the checkers. RTX 50-series supported (CUDA 12.8 wheels); driver 570 or newer |
 | Disk | ~35 GB (weights ~15 GB, three venvs ~17 GB) plus pip cache |
-| Software | Python 3.12+ (3.13 by default, via the `py` launcher), Git |
-| Hugging Face | Stable Audio 3 is gated: accept its licence at [stabilityai/stable-audio-3-small-sfx](https://huggingface.co/stabilityai/stable-audio-3-small-sfx) and run `hf auth login` yourself before installing |
+| Software | Python 3.12+ from [python.org](https://www.python.org/downloads/windows/) with the `py` launcher (3.13 by default), [Git for Windows](https://git-scm.com/download/win) |
+| Hugging Face | A free account: Stable Audio 3 is gated (see Install) |
 
 ## Install
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\install.ps1
-```
+1. On [stabilityai/stable-audio-3-small-sfx](https://huggingface.co/stabilityai/stable-audio-3-small-sfx),
+   log in to Hugging Face and accept the licence (it's granted at once). Create a **read**
+   access token under Settings > Access Tokens.
+2. Install:
 
-It clones the two engines' inference code at pinned commits into `engine\`, builds `.venv\`
-(server and checks), `.venv-sa3\` and `.venv-moss\` with CUDA 12.8 PyTorch builds (a
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\install.ps1 -AcceptModelLicenses
+   ```
+
+3. When it reaches the Stable Audio 3 download, it stops with "This repo is gated" unless you
+   are logged in already. Log in with the token from step 1, then run the same install command
+   again (finished steps are skipped):
+
+   ```powershell
+   .venv\Scripts\hf.exe auth login
+   ```
+
+The installer clones the two engines' inference code at pinned commits into `engine\`, builds
+`.venv\` (server and checks), `.venv-sa3\` and `.venv-moss\` with CUDA 12.8 PyTorch builds (a
 constraints file stops any requirement from swapping them for a CPU build), downloads the
 weights into `models\`, and links the skill. Re-running is safe: finished steps are skipped
-and downloads resume.
+and downloads resume. The token stays in Hugging Face's own login store; nothing here reads it.
 
 **Weights are pinned:** `models.json` fixes each repo to a revision, and `models.lock.json`
 records every file's size and SHA256, so an upstream re-upload fails loudly. Files you already
@@ -146,13 +171,20 @@ without downloading anything: `.venv\Scripts\python.exe scripts\download_models.
 
 ## Using it
 
-**`.\start.cmd`** starts the server in its own console window titled "local-sounds server -
-close this window to stop it" and returns at once; the page opens when it's ready (SA3 and the
-checkers load in ~30 s). `start.cmd --no-browser` is what agents use; `--here` runs it in the
-current console, for scripts that manage the process; `--engines sa3,moss` loads both engines
-at start (otherwise the second loads on its first request, ~75 s for MOSS). Closing the
-window, or **`.\stop.cmd`**, stops it and its engine workers and frees the GPU; `stop.cmd`
-reports the VRAM in use afterwards. A second start while one runs exits at once ("port in use").
+**The server is started and stopped, nothing else, and always runs in its own window.**
+**`.\start.cmd`** opens it in a console window titled "local-sounds server - close this window
+to stop it" and returns at once; the page opens when it's ready (SA3 and the checkers load in
+~30 s). `start.cmd --no-browser` skips the page; `--engines sa3,moss` loads both engines at
+start (otherwise the second loads on its first request, ~75 s for MOSS). The command line
+(`scripts\sfx.py`) starts it the same way by itself when it isn't running, unless another
+program already holds over 4 GB of the GPU's memory: then it says so and starts nothing
+(`--start-anyway` overrides; `--no-start` never starts it).
+
+The server refuses to run anywhere else (a hidden background shell, `python server\app.py`), so
+it can't be left holding the GPU out of sight. It keeps its models loaded until it stops:
+**close its window, or run `.\stop.cmd`**, which stops it and its engine workers, frees the GPU,
+closes the window and reports the VRAM in use afterwards (exit code 1 if anything survived). A
+second start while one runs exits at once ("port in use").
 
 **The server's log.** The window shows milestones, one line per request and any errors; the
 full output (library notices, progress bars) goes to `logs\server.log`, timestamped. Each start
@@ -160,24 +192,84 @@ keeps the previous run as `logs\server.previous.log`.
 
 ### Command line (what agents use)
 
+The CLI is standard-library Python: any Python 3.10+ runs it, the venv's is simply always there.
+
 ```powershell
-python scripts\sfx.py "sword hit on a shield" --duration 1.2 --out D:\anim\sfx
-python scripts\sfx.py "door slam" --align-frame 36 --fps 24 --out D:\anim\sfx
-python scripts\sfx.py "rain on a tin roof" --loop --duration 8 --out D:\anim\sfx
-python scripts\sfx.py "footstep on gravel" --variations 5 --out D:\anim\sfx
-python scripts\sfx.py "laser zap" --like 20261004-142803-c6ab:13              # more like that take
-python scripts\sfx.py --post 20261004-142803-c6ab --align-frame 40             # re-process only
-python scripts\sfx.py --variations 5 --take 20261004-142803-c6ab:13 --out D:\anim\sfx   # round-robins of a take
-python scripts\sfx.py --layer 20261004-142803-c6ab:13 --layer 20261004-143001-9f2e:5,gain=-6,offset=2f --out D:\anim\sfx
-python scripts\sfx.py "a group of pelicans chatting" --stack 4 --out D:\anim\sfx   # 4 takes stacked into one
-python scripts\sfx.py "sword hit" --json                                       # machine-readable
-python scripts\sfx.py --show-prompt "sword hit"     # the prompt, negative and file name, nothing generated
-python scripts\sfx.py --settings                    # the defaults in effect
+$py = ".venv\Scripts\python.exe"
+& $py scripts\sfx.py "sword hit on a shield" --duration 1.2 --out D:\anim\sfx
+& $py scripts\sfx.py "door slam" --align-frame 36 --fps 24 --out D:\anim\sfx
+& $py scripts\sfx.py "rain on a tin roof" --loop --duration 8 --out D:\anim\sfx
+& $py scripts\sfx.py "footstep on gravel" --variations 5 --out D:\anim\sfx
+& $py scripts\sfx.py "laser zap" --like 20261004-142803-c6ab:13              # more like that take
+& $py scripts\sfx.py --post 20261004-142803-c6ab --align-frame 40             # re-process only
+& $py scripts\sfx.py --variations 5 --take 20261004-142803-c6ab:13 --out D:\anim\sfx   # round-robins of a take
+& $py scripts\sfx.py --layer 20261004-142803-c6ab:13 --layer 20261004-143001-9f2e:5,gain=-6,offset=2f --out D:\anim\sfx
+& $py scripts\sfx.py "a group of pelicans chatting" --stack 4 --out D:\anim\sfx   # 4 takes stacked into one
+& $py scripts\sfx.py --batch film.json --out D:\anim\sfx                     # a whole cue sheet (below)
+& $py scripts\sfx.py "sword hit" --json                                       # machine-readable
+& $py scripts\sfx.py --show-prompt "sword hit"     # the prompt, negative and file name, nothing generated
+& $py scripts\sfx.py --settings                    # the defaults in effect
 ```
 
 `SKILL.md` has the full flag table, what every score and warning means, and how to read the
 spectrogram. Exit codes: 0 done, 1 no server / server error, 2 bad arguments, 3 every take was
-rejected.
+rejected (with `--batch`: some cue delivered nothing).
+
+### Cue sheets (a whole film's sounds)
+
+A film needs dozens of sounds. Put them in one JSON file and run them in one go:
+
+```json
+{
+  "defaults": {"fps": 24},
+  "cues": [
+    {"id": "door", "text": "heavy wooden door slam", "align_frame": 36, "name": "DoorSlam"},
+    {"id": "rain", "text": "rain on a tin roof", "loop": true, "duration": 8},
+    {"id": "flock", "text": "a flock of seagulls squawking", "stack": 4},
+    {"id": "glitch", "text": "digital glitch stutter, short", "n": 6},
+    {"id": "glitches", "text": "digital glitch burst", "like": "@glitch", "like_strength": 0.6, "n": 8, "all": true}
+  ]
+}
+```
+
+```powershell
+& $py scripts\sfx.py --batch film.json --out D:\anim\sfx --dry-run   # check it; prompts if the server is up
+& $py scripts\sfx.py --batch film.json --out D:\anim\sfx
+```
+
+A cue takes the command line's options by their long names (`text`, `duration`, `mode` or
+`"loop": true`, `align_frame`, `n`, `seed`/`seeds`, `engine`, `category`, `name`, `cat`, `stack`,
+`variations`, `best`/`all`, `out`, ...) plus an `id` (default: its `name`, or one made from its
+text). The whole sheet is checked before anything is generated. Options in `defaults` apply to
+every cue; options given on the command line override `defaults`; a cue's own options override
+both. `"like": "@glitch"` means the best take of the earlier cue `glitch`.
+
+Cues run one after another, delivering into `--out` as they go. `film.summary.json` next to the
+delivered files is rewritten after every cue: each cue's status, request, prompt, every take's
+ref, seed, scores, warnings and spectrogram, and the delivered files. **Running the same command
+again carries on**: cues already delivered are skipped (unless the cue changed, its files are
+gone, or `--redo glitch,door` names it); failed ones and ones whose every take was rejected run
+again. A failing cue doesn't stop the batch; a lost server does (re-run to resume).
+
+### Families of related sounds
+
+For a set that should read as one family in the mix (eight glitches, a creature's calls, one
+machine's noises), grow the set from one anchor take instead of eight unrelated prompts: make the
+anchor, pick the take you like, then ask for many takes like it with `--like` (Stable Audio 3
+only). Each seed gives a genuinely different sound that keeps the anchor's character; the text
+can change per call.
+
+```powershell
+& $py scripts\sfx.py "digital glitch stutter, short" --n 6                                 # the anchor; pick a take
+& $py scripts\sfx.py "digital glitch burst" --like <ref> --like-strength 0.6 --n 8 --all --out D:\anim\sfx
+```
+
+`--like-strength` sets the distance: 0.3 stays close, 0.5 (default) varies, 0.8 only keeps the
+broad colour. In a cue sheet, `"like": "@anchor"` does the same with the anchor cue's best take.
+`--variations` is for something else: round-robin copies of *one* take (a slightly different
+pitch and EQ each), so a repeated footstep doesn't sound identical; as a family they'd sound
+like the same sound eight times. With MOSS (no `--like`), keep the prompt's core words the same
+across the set and vary one detail.
 
 **Your own defaults.** On the page, under Advanced, **Make these my defaults** stores the settings
 (engine, takes, seed, fps, reverb, steps, avoid-words, raw wording, scoring) in `config.local.json`
@@ -219,7 +311,6 @@ half a second for an explanation.
 | `GET /api/prompt?text=` | | the prompt, negative, category, file name and CLAP distractors |
 | `GET /api/requests`, `GET` / `DELETE /api/requests/<id>` | | recent requests; one request; delete its files |
 | `GET /api/categories`, `/api/engines`, `/api/health` | | recipes; engines; status and VRAM |
-| `POST /api/engines/<name>/stop` | | stop one engine's worker (frees its VRAM) |
 | `GET` / `POST` / `DELETE /api/settings` | the settings to save | `effective`, `saved`, `repo`; save / reset `config.local.json` |
 | `GET /files/<id>/<name>` | | a WAV, PNG or JSON from a request |
 
@@ -287,12 +378,14 @@ installation nothing contacts the network; there is no telemetry. `output\` hold
 ## Before pushing
 
 ```powershell
-python scripts\check_repo_safe.py            # what git would publish
-python scripts\check_repo_safe.py --history  # and every past commit
+.venv\Scripts\python.exe scripts\check_repo_safe.py            # what git would publish
+.venv\Scripts\python.exe scripts\check_repo_safe.py --history  # and every past commit
 ```
 
 It fails on weights, audio, images, large files, local paths, emails, IP addresses and
-credential-shaped strings. It can't judge prose, so read your own diff too.
+credential-shaped strings. It can't judge prose, so read your own diff too. CI runs it (with
+the history) and the tests on every pull request; `main` only takes changes through a pull
+request whose `tests` check passed.
 
 ## Tests
 
@@ -301,20 +394,25 @@ credential-shaped strings. It can't judge prose, so read your own diff too.
 ```
 
 Post-processing (frames, alignment, loops, loudness, variations, layers), the signal checks,
-WAV/INFO writing, prompts and names, settings, request handling and the HTTP guards. No models
-are loaded.
+WAV/INFO writing, prompts and names, settings, request handling and the HTTP guards, cue sheets,
+and starting and stopping the server. No models or GPU are needed: CI runs them on a CPU-only
+Windows runner with `requirements-ci.txt`.
 
 ## Licensing
 
-This repo's code is MIT. The weights keep their own licences: Stable Audio 3 under the Stability
-AI Community License, MOSS-SoundEffect under Apache-2.0; see [LICENSE-MODELS.md](LICENSE-MODELS.md).
+This repo's code is MIT ([LICENSE](LICENSE)). The weights keep their own licences: Stable Audio 3
+under the Stability AI Community License, MOSS-SoundEffect under Apache-2.0.
+[LICENSE-MODELS.md](LICENSE-MODELS.md) says plainly what that means for the sounds you make
+(in short: MOSS's are yours to use for anything; Stable Audio 3's are yours too, free for
+non-commercial use and for commercial use under US $1M a year in revenue, after registering
+with Stability AI). Powered by Stability AI.
 
 ## Repo layout
 
 ```
 install.ps1 / start.cmd / stop.cmd     setup, launch, shutdown
 models.json, models.lock.json          pinned, checksummed weight manifest
-requirements*.txt                      the three venvs' dependencies
+requirements*.txt                      the three venvs' dependencies, and CI's
 server/app.py, server/page.html        the loopback server and its page
 server/workers/                        one worker per engine (own venv), and their protocol
 server/serverlog.py                    clean console, full log file
@@ -324,6 +422,7 @@ scripts/bakeoff.py                     the engine bake-off and its A/B page
 scripts/download_models.py             resumable, verifying downloader
 scripts/check_repo_safe.py             pre-publish scan
 tests/                                 pytest
+.github/workflows/tests.yml            CI: the tests and the safety scan, on Windows
 SKILL.md                               the Claude Code skill
 engine/, models/, .venv*/, output/, logs/   created at install / run time, gitignored
 ```

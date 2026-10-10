@@ -1,0 +1,16 @@
+# What the test suite needs, for CI: no GPU, no model weights, no engine checkout. The same
+# versions as the real install (requirements.txt). torch (the server frees its CUDA cache after
+# each job) comes from the CPU wheel index: see .github/workflows/tests.yml.
+numpy==2.5.3
+scipy==1.18.1
+soundfile==0.14.0
+soxr==1.1.0
+pyloudnorm==0.2.0
+pedalboard==0.9.25
+matplotlib==3.11.2
+fastapi==0.142.2
+starlette==1.7.0
+uvicorn==0.54.0
+pydantic==2.13.5
+httpx==0.28.1
+pytest==9.1.1

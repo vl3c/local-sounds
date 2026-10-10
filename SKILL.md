@@ -1,6 +1,6 @@
 ---
 name: local-sounds
-description: Generate sound effects locally for animation (impacts, whooshes, UI blips, footsteps, cartoon boings and pops, magic, sci-fi machines, creatures, explosions, ambience loops) with Stable Audio 3 Small-SFX or MOSS-SoundEffect v2 on this machine's GPU. Every take is checked automatically (clipping, silence, noise, onset; CLAP prompt match; Audiobox production quality) and ranked best-of-N, then trimmed so the hit lands at t=0 or on a chosen frame, looped seamlessly, varied round-robin or layered, and delivered as 48 kHz 24-bit WAVs with UCS names to a folder the user names. Use when the user (or an animation task) needs SFX, foley, a sound for a frame, an ambience loop, or wants sound effects made without a cloud service. Not for music or speech.
+description: Generate sound effects locally for animation (impacts, whooshes, UI blips, footsteps, cartoon boings and pops, magic, sci-fi machines, creatures, explosions, ambience loops) with Stable Audio 3 Small-SFX or MOSS-SoundEffect v2 on this machine's GPU. Every take is checked automatically (clipping, silence, noise, onset; CLAP prompt match; Audiobox production quality) and ranked best-of-N, then trimmed so the hit lands at t=0 or on a chosen frame, looped seamlessly, varied round-robin or layered, and delivered as 48 kHz 24-bit WAVs with UCS names to a folder the user names; a whole film's cue sheet runs in one resumable batch. Use when the user (or an animation task) needs SFX, foley, a sound for a frame, an ambience loop, or wants sound effects made without a cloud service. Not for music or speech.
 ---
 
 # local-sounds: frame-ready sound effects on the local GPU
@@ -20,21 +20,23 @@ The tool is installed at `~/.claude/skills/local-sounds` (this skill's folder). 
 commands as written: `~` works in Bash, and `cygpath -w` gives `cmd` the Windows form.
 
 ```bash
-curl -s http://127.0.0.1:8191/api/health                                           # JSON = the server is up
-cmd //c "$(cygpath -w ~/.claude/skills/local-sounds/start.cmd)" --no-browser       # if not: its own window, ~30 s
-~/.claude/skills/local-sounds/.venv/Scripts/python.exe ~/.claude/skills/local-sounds/scripts/sfx.py "sword hit on a shield" --duration 1.2 --wait 180 --out <dir>
+~/.claude/skills/local-sounds/.venv/Scripts/python.exe ~/.claude/skills/local-sounds/scripts/sfx.py "sword hit on a shield" --duration 1.2 --out <dir>
 ```
 
-That makes 4 takes, prints them ranked with their scores and PNG paths, and copies the best
-one to `<dir>` as `METLImpt_SwordHitShield_v01.wav` + a `.json` sidecar. Look at the PNG of
-the top take; if the user wants options, deliver more (`--best 3`) or send the PNGs too.
-Send files with SendUserFile if you have it; otherwise give the paths.
+If the server isn't running, that first starts it in **its own visible window** (~30 s; the
+user sees it, and closing it stops the server), then makes 4 takes, prints them ranked with
+their scores and PNG paths, and copies the best one to `<dir>` as
+`METLImpt_SwordHitShield_v01.wav` + a `.json` sidecar. Look at the PNG of the top take; if the
+user wants options, deliver more (`--best 3`) or send the PNGs too. Send files with
+SendUserFile if you have it; otherwise give the paths. For many sounds at once, write a cue
+sheet (section 2, "Cue sheets").
 
 ## How a request looks
 
 "I need a sword clang on frame 36 of my 24 fps shot, and a loopable forge ambience."
 
-1. **Check** the GPU and the server (section 1). Start it if needed.
+1. **Check** the GPU (section 1): the CLI starts the server itself, but not while another
+   program holds the GPU.
 2. **Prompt tersely, one sound per request**: `"sword clang on a shield"`. The category
    recipe adds the envelope and recording words (section 3); `--show-prompt` shows them.
 3. **Generate with the animation settings**: `--align-frame 36 --fps 24 --duration 1.5`;
@@ -45,13 +47,14 @@ Send files with SendUserFile if you have it; otherwise give the paths.
 5. **Iterate**: `--like <ref>` for "more like #3" (sa3), `--post <request id> --align-frame 40`
    to move the hit without regenerating, `--variations 5` for round-robins.
 6. **Deliver** to the folder the user named (`--out`), and **report**: the paths, each take's
-   ref and seed, the scores, any warnings, and that the server still holds VRAM (section 6).
+   ref and seed, the scores, any warnings, and that the server is still running in its window,
+   holding VRAM (section 6).
 
 **When to ask the user:**
 - Whether a take sounds right: you can't tell. Offer concrete knobs ("drier", "shorter tail",
   "more metallic", "lower", "less whoosh, more thud") rather than asking open-endedly.
-- Before stopping another GPU server (local-voice, local-image's ComfyUI, local-agent's
-  llama-server): they may be in use.
+- Before stopping any other program that holds the GPU (another model server, an image
+  generator, a game): it may be in use.
 - Where the files go, if they didn't say. Never write into their project unasked.
 
 ## Ground rules
@@ -60,39 +63,48 @@ Send files with SendUserFile if you have it; otherwise give the paths.
   network. Don't fall back to a cloud SFX service without asking.
 - **Sound effects only**: not music, not speech. A creature *vocalisation* is fine; words are not.
 - **Licences** (`LICENSE-MODELS.md`): MOSS-SoundEffect is Apache-2.0; Stable Audio 3 is under
-  the Stability AI Community License. If the user plans commercial use, mention it once.
+  the Stability AI Community License (free for non-commercial use, and for commercial use under
+  US $1M a year in revenue after registering with Stability AI; the user owns the sounds). If
+  the user plans commercial use, mention it once.
+- **The server is only started and stopped, and only ever runs in its own visible window.**
+  Never run `server/app.py` yourself or start the server hidden (it refuses anyway), and don't
+  look for ways to unload its models: stopping it is how the GPU is freed.
 - `README.md` has the full details for humans.
 
 ## 1. GPU and server
 
 ```bash
-curl -s http://127.0.0.1:8191/api/health          # engines running, VRAM
+curl -s http://127.0.0.1:8191/api/health          # JSON = the server is up: engines running, VRAM
 nvidia-smi --query-gpu=memory.used,memory.total --format=csv,noheader
-tasklist | grep -i -E "llama-server|python"
 ```
 
 The server holds Stable Audio 3 (~2.5 GB) and the checkers (~1.5 GB) by default; MOSS adds
 ~7.5 GB (up to ~10 GB while generating) when first used. Both engines together peak around
-14 GB of the 16 GB card. The local-voice (8.4-12.6 GB), local-image ComfyUI (~15.5 GB) and
-local-agent llama-server (~11-12 GB) servers can't run alongside it: if one is up, **ask the
-user** before stopping it with that tool's own `stop.cmd`.
+14 GB of a 16 GB card. Another model server on the same card doesn't fail: the driver silently
+pages the overflow into system RAM and both crawl.
 
-**Start it in its own window** (it returns at once; the window is the user's to close):
+**Starting.** Just run `sfx.py`: when the server isn't running, it starts it with `start.cmd`
+in its own visible console window titled "local-sounds server - close this window to stop it",
+waits until it's ready (SA3 ~25 s; MOSS loads on its first request, ~75 s more) and carries on.
+It won't start it while another program holds over 4 GB of GPU memory: it exits 1 saying how
+much is in use. Then **ask the user** before stopping that program (with its own stop command,
+never by killing processes); `--start-anyway` only if they say to run both. The same start by
+hand, e.g. with both engines loaded at once:
 
 ```bash
-cmd //c "$(cygpath -w ~/.claude/skills/local-sounds/start.cmd)" --no-browser
-cmd //c "$(cygpath -w ~/.claude/skills/local-sounds/start.cmd)" --no-browser --engines sa3,moss   # both now
+cmd //c "$(cygpath -w ~/.claude/skills/local-sounds/start.cmd)" --no-browser --engines sa3,moss
 ```
 
-Startup: SA3 ~25 s, MOSS ~75 s more. `--wait 180` on the first `sfx.py` call covers it. If it
-doesn't come up, read `~/.claude/skills/local-sounds/logs/server.log` (previous run:
-`server.previous.log`). If `.venv` or `models/` is missing, the tool isn't installed:
-`install.ps1` downloads ~20 GB (~35 GB on disk), so ask the user first.
+That window is the only place the server runs (it refuses any other start), and it stays the
+user's: leave it open. If the server doesn't come up, read the window or
+`~/.claude/skills/local-sounds/logs/server.log` (previous run: `server.previous.log`). If `.venv`
+or `models/` is missing, the tool isn't installed: `install.ps1 -AcceptModelLicenses` downloads
+~20 GB (~35 GB on disk) under licences the user accepts, so ask the user first.
 
 ## 2. Commands
 
 The CLI is standard-library Python; run it with the tool's own interpreter (plain `python` may be
-the Microsoft Store stub on this machine):
+Windows' Microsoft Store stub):
 
 ```bash
 PY=~/.claude/skills/local-sounds/.venv/Scripts/python.exe
@@ -138,10 +150,53 @@ server's full response (plus `delivered`): parse that rather than the text.
 | `--name FXName --cat CatID` | Override the file name parts (UCS: `CatID_FXName_vNN.wav`). |
 | `--play` | Play the best take (or first delivered file) on the user's speakers. Only when they ask. |
 | `--no-save` | Delete the request from `output/` afterwards. |
-| `--wait S` | Wait up to S seconds for the server. |
+| `--wait S` | Wait up to S seconds for a running server to answer (a server it starts gets up to 240 s). |
+| `--no-start` / `--start-anyway` | Never start the server / start it even though another program holds over 4 GB of GPU memory (only when the user says so). |
+| `--batch FILE [--dry-run] [--redo IDS]` | Make every cue of a cue sheet (below). |
 
-**Exit codes:** 0 done; 1 no server / server error; 2 bad arguments; 3 every take was rejected
-(try another seed batch, a longer duration, or rephrase).
+**Exit codes:** 0 done; 1 no server (or the GPU is busy) / server error; 2 bad arguments; 3 every
+take was rejected (try another seed batch, a longer duration, or rephrase); with `--batch`, 3
+means some cue delivered nothing.
+
+### Cue sheets: many sounds in one run
+
+When a project needs more than a few sounds (a film's whole sound list), write them to a JSON
+cue sheet next to the user's files and run it once, instead of one command per sound:
+
+```json
+{
+  "defaults": {"fps": 24},
+  "cues": [
+    {"id": "door", "text": "heavy wooden door slam", "align_frame": 36, "name": "DoorSlam"},
+    {"id": "rain", "text": "rain on a tin roof", "loop": true, "duration": 8},
+    {"id": "glitch", "text": "digital glitch stutter, short", "n": 6},
+    {"id": "glitches", "text": "digital glitch burst", "like": "@glitch", "like_strength": 0.6, "n": 8, "all": true}
+  ]
+}
+```
+
+```bash
+$PY $S --batch <dir>/film.json --out <dir> --dry-run    # checks every cue; shows prompts if the server is up
+$PY $S --batch <dir>/film.json --out <dir>              # runs them; one line per cue
+```
+
+- A cue takes the flags above by their long names, with `_` or `-` (`align_frame`, `like_strength`;
+  switches are `true`/`false`, `"loop": true` is `--loop`, `"seeds": [1, 2]`), plus an `id`
+  (default: its `name`, else made from its text). `defaults` apply to every cue; flags on the
+  command line override `defaults`; the cue's own options override both. A relative `out` in
+  the file is relative to the file.
+- `"like": "@<id>"` is the best kept take of an earlier cue: the way to grow a family (section 5).
+- The whole sheet is checked first: a bad cue stops it before anything is generated, naming
+  the cue and the problem.
+- `<sheet name>.summary.json` (in `--out`) is rewritten after every cue: per cue its `status`
+  (`delivered`, `no keepers`, `failed` with an `error`), `request`, `prompt`, `best_ref`,
+  `delivered` files, and every take's `ref`, `seed`, `score`, `clap_cos`, `pq`, `warnings`,
+  `fails` and `png`. Read it, Read the PNGs of the delivered takes, and report from it.
+- **Re-running the same command carries on**: delivered cues are skipped (unless the cue
+  changed, its files are gone, or `--redo id1,id2` names it); the rest run again. So after a
+  failure or an interruption, fix the cue (rephrase, another seed, a longer duration) and re-run.
+  A lost server stops the batch (exit 1); a single failing cue doesn't.
+- `--json` prints the summary at the end instead of the per-cue lines.
 
 ### Engines
 
@@ -256,8 +311,8 @@ rotated so the seam is in the middle). What to look for:
 - **Layering**: build a big hit from parts (a low thud + a metal clang + debris), each
   generated separately; offsets in ms or frames (`offset=2f`).
 - **Stacking** (`--stack N`): several takes of the *same* sound mixed into one. Each take is a
-  slightly different performance, so together they sound fuller and more natural: the user found
-  4 stacked pelican takes much better than any single one. Use it for:
+  slightly different performance, so together they sound fuller and more natural (4 stacked takes
+  of a group of pelicans beat any single one by ear). Use it for:
   - groups and crowds of animals or creatures (a flock, a pack, birds chattering, frogs at night),
   - textures and ambiences (rain, fire, wind, water, machinery hum, a swarm),
   - "big" sounds that should feel thick (a monster roar, an explosion's rumble, a magic swell).
@@ -268,6 +323,15 @@ rotated so the seam is in the middle). What to look for:
   `--spread 30`-`80`. **Stacks usually score lower than their best single take** (a denser sound
   reads as noise to Audiobox and CLAP), so never reject a stack on its score: deliver both files
   (`--out` does) and let the user choose by ear.
+- **Families** (a set that should read as one in the mix: eight glitches, one creature's calls,
+  one machine's noises): don't write eight unrelated prompts, and don't use `--variations`
+  (those are pitch/EQ copies of one take: eight of the same glitch). Grow the set from one anchor:
+  make the anchor (`--n 6`), have the user pick the take (or take the best), then
+  `"<text>" --like <ref> --like-strength 0.6 --n 8 --all --out <dir>`. Each seed is a different
+  sound with the anchor's character, and the text may change per call ("glitch stutter",
+  "glitch burst"). Strength 0.3 stays close, 0.5 varies, 0.8 keeps only the broad colour. sa3
+  only; with moss, keep the prompt's core words fixed and vary one detail. In a cue sheet:
+  `"like": "@anchor"`.
 
 ## 6. Delivering and finishing
 
@@ -276,23 +340,31 @@ re-deliver an earlier take: `--post <request id> --out <dir>` (re-processes with
 post-processing flags first). Then tell the user the paths, refs, seeds and scores, and relay
 warnings.
 
-The server keeps the engines in VRAM: that's what makes the next request fast, but it blocks
-the other local GPU tools. **Leave it running and tell the user** it's up; stop it when they're
-done or need the GPU:
+The server keeps the engines in VRAM until it stops: that's what makes the next request fast,
+but it blocks other GPU programs. **Leave it running and tell the user** it's up (in its
+window); stop it when they're done or need the GPU. Stopping is the only way to free it:
 
 ```bash
 cmd //c "$(cygpath -w ~/.claude/skills/local-sounds/stop.cmd)"
 ```
 
+`stop.cmd` stops the server and its engine workers, frees the VRAM, closes the server's window
+and prints the VRAM now in use; exit code 1 means something survived (tell the user; don't
+reach for anything stronger). The user closing the window does the same.
+
 When the user wants to fine-tune a stack or a layered mix themselves, the page's mixer is the
-tool: they hear changes instantly. The page at http://127.0.0.1:8191/ is for the user: generate and compare takes by ear, adjust timing,
-and a **mixer** (Add to mix on takes, then position and volume sliders per layer, instant preview,
-Export mix). Point them to it when they want to audition or hand-place layers themselves.
+tool: they hear changes instantly. The page at http://127.0.0.1:8191/ is for the user: generate
+and compare takes by ear, adjust timing, and a **mixer** (Add to mix on takes, then position and
+volume sliders per layer, instant preview, Export mix). Point them to it when they want to
+audition or hand-place layers themselves.
 
 ## Troubleshooting
 
-- `lost the server` / exit 1: read the end of `logs/server.log`. An engine that crashed is
-  restarted on the next request.
+- `lost the server` / exit 1: read the server's window, or the end of `logs/server.log`. An
+  engine that crashed is restarted on the next request. If the window is gone, the user closed
+  it (or stopped the server): the next `sfx.py` call starts it again.
+- `... GB of the GPU's memory is already in use by another program`: something else holds the
+  GPU. Ask the user whether to stop it (with its own stop command) or run anyway.
 - Every take rejected for clipping or static: rephrase or change seeds; report it if it
   repeats (sa3 needs whole-second lengths internally; the worker rounds up for you).
 - MOSS is slow by design (100 steps on a 30 s window): ~13 s a take, so `--n 2` for drafts.

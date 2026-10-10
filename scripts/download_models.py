@@ -1,4 +1,4 @@
-"""Fetch the weights listed in models.json into models/<name>/, verifying every file.
+r"""Fetch the weights listed in models.json into models/<name>/, verifying every file.
 
 Each repo is pinned to a revision in models.json; models.lock.json pins every file's size
 and SHA256, so an upstream re-upload fails loudly instead of silently changing what you get.
@@ -6,13 +6,15 @@ Downloads resume. Files you already have are reused instead of downloaded: from 
 install (--reuse <its models folder>) or from your Hugging Face cache, hard-linked when on
 the same drive (no extra space) or copied, then verified like any download.
 
-    python scripts/download_models.py                    # everything not marked optional
-    python scripts/download_models.py --only captioner   # one repo, by name
-    python scripts/download_models.py --verify           # check what's there, download nothing
-    python scripts/download_models.py --reuse D:/old/local-sounds/models
+    python scripts/download_models.py --accept-licenses                   # everything not marked optional
+    python scripts/download_models.py --accept-licenses --only captioner  # one repo, by name
+    python scripts/download_models.py --verify                            # check what's there, download nothing
+    python scripts/download_models.py --accept-licenses --reuse <another install>/models
 
-Gated repos (Stable Audio 3): accept the licence on the model's Hugging Face page and run
-`hf auth login` yourself first. This script never reads, prints or stores your token: the
+Downloading needs --accept-licenses: the weights come under their own licences (see
+LICENSE-MODELS.md); without it this lists them and stops. Gated repos (Stable Audio 3):
+accept the licence on the model's Hugging Face page and log in yourself first
+(.venv\Scripts\hf.exe auth login). This script never reads, prints or stores your token: the
 huggingface_hub library finds the login on its own.
 
 Runs with the main venv's Python (it needs huggingface_hub).
@@ -35,6 +37,23 @@ MODELS = REPO / "models"
 MANIFEST = REPO / "models.json"
 LOCK = REPO / "models.lock.json"
 CHUNK = 1 << 20
+LICENSES = """
+  local-sounds downloads these models. Read their licences first:
+
+    Stable Audio 3 Small-SFX   Stability AI Community License: free for personal, research and
+                               non-commercial use; commercial use is free too while you (with
+                               your affiliates) make under US $1M a year, after registering with
+                               Stability AI. You own the sounds you make.
+                               https://huggingface.co/stabilityai/stable-audio-3-small-sfx
+                               (its text encoder comes under the Gemma Terms of Use)
+    MOSS-SoundEffect v2.0      Apache-2.0
+    CLAP larger_clap_general   Apache-2.0 (scores takes)
+    Audiobox Aesthetics        CC-BY-4.0 (scores takes)
+    MiDashengLM 0.6B           Apache-2.0 (the optional captioner)
+
+  This repo's own code is MIT; LICENSE-MODELS.md says what the licences mean for you.
+  To accept them and download, re-run with --accept-licenses.
+"""
 
 os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
 
@@ -159,7 +178,12 @@ def main() -> int:
     ap.add_argument("--verify", action="store_true", help="check files against models.lock.json; download nothing")
     ap.add_argument("--reuse", action="append", type=Path, default=[], help="another install's models folder")
     ap.add_argument("--with-optional", action="store_true", help="include optional repos (the captioner)")
+    ap.add_argument("--accept-licenses", action="store_true", help="accept the models' licences (see "
+                    "LICENSE-MODELS.md); needed to download, not to --verify")
     args = ap.parse_args()
+    if not (args.verify or args.accept_licenses):
+        print(LICENSES)
+        return 2
 
     entries = json.loads(MANIFEST.read_text(encoding="utf-8"))["repos"]
     names = {e["name"] for e in entries}
@@ -176,8 +200,8 @@ def main() -> int:
         except Exception as exc:  # gated without access, network down...
             msg = str(exc).splitlines()[0] if str(exc) else type(exc).__name__
             if "gated" in msg.lower() or "401" in msg or "403" in msg:
-                msg += ("\n    This repo is gated: accept its licence on its Hugging Face page, run "
-                        "`hf auth login` yourself, then re-run.")
+                msg += (f"\n    This repo is gated: accept its licence on https://huggingface.co/{e['repo']}, "
+                        "log in with  .venv\\Scripts\\hf.exe auth login  (it asks for a read token), then re-run.")
             print(f"    FAILED: {type(exc).__name__}: {msg}")
             failed.append(e["name"])
         if not args.verify:
