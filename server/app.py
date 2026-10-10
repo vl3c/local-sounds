@@ -197,14 +197,6 @@ def worker(name: str) -> Worker:
     return w
 
 
-def stop_worker(name: str) -> bool:
-    w = _workers.pop(name, None)
-    if w is not None:
-        w.close()
-        return True
-    return False
-
-
 @atexit.register
 def _stop_workers() -> None:
     for w in list(_workers.values()):
@@ -885,15 +877,6 @@ def engines():
             for k, e in ENGINES.items()}
 
 
-@app.post("/api/engines/{name}/stop")
-def stop_engine(name: str):
-    if name not in ENGINES:
-        raise HTTPException(400, f"unknown engine {name!r}")
-    with _lock:
-        stopped = stop_worker(name)
-    return {"engine": name, "stopped": stopped}
-
-
 @app.get("/api/health")
 def health():
     import torch
@@ -1016,7 +999,16 @@ def _single_instance() -> bool:
     return True
 
 
+WINDOW_MARK = "LOCAL_SOUNDS_WINDOW"  # set by start.cmd for the console window it opens, and only there
+
+
 def main() -> None:
+    # Always in its own visible window, so a server holding GPU memory can't be left running
+    # out of sight: start.cmd opens that window and marks it; any other start is refused.
+    # The models are only ever freed by stopping the server (close the window, or stop.cmd).
+    if os.environ.get(WINDOW_MARK) != "1":
+        sys.exit("local-sounds runs only in its own visible window: start it with start.cmd "
+                 "(close that window, or run stop.cmd, to stop it).")
     ap = argparse.ArgumentParser(description="local-sounds server")
     ap.add_argument("--port", type=int, default=PORT)
     ap.add_argument("--engines", default=None,

@@ -4,7 +4,7 @@ automatic checks, then a blind A/B page to pick the default by ear.
     python scripts/bakeoff.py                      # all prompts, 3 seeds each, both engines
     python scripts/bakeoff.py --seeds 11,12 --only whoosh-sword,ui-confirm
 
-Needs the server (start.cmd). Writes output/bakeoff/: results.json (every take's scores),
+Needs the server (started in its own window if it isn't running). Writes output/bakeoff/: results.json (every take's scores),
 summary.md (per-engine averages), the best take of each engine per prompt as blind
 A/B files, and index.html, served at http://127.0.0.1:8191/bakeoff/. Your votes on that
 page are stored in output/bakeoff/votes.json. Standard library only.
@@ -23,7 +23,7 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from sfx import OUTPUT, call, wait_for_server  # noqa: E402  (scripts/sfx.py)
+from sfx import OUTPUT, ServerError, call, ensure_server  # noqa: E402  (scripts/sfx.py)
 
 BAKEOFF = OUTPUT / "bakeoff"
 
@@ -70,8 +70,10 @@ def main() -> int:
     engines = [e.strip() for e in a.engines.split(",") if e.strip()]
     seeds = [int(s) for s in a.seeds.split(",")]
     todo = [p for p in PROMPTS if not a.only or p[0] in a.only.split(",")]
-    if not wait_for_server(10):
-        print("No server: start it with start.cmd --no-browser", file=sys.stderr)
+    try:
+        ensure_server(10)  # starts it in its own window if it isn't running
+    except ServerError as exc:
+        print(exc, file=sys.stderr)
         return 1
     BAKEOFF.mkdir(parents=True, exist_ok=True)
     results_path = BAKEOFF / "results.json"
@@ -234,4 +236,8 @@ fetch('/api/bakeoff/votes').then(r => r.json()).then(v => {{
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except ServerError as exc:  # results.json keeps what was done: a re-run carries on
+        print(exc, file=sys.stderr)
+        sys.exit(exc.code)
