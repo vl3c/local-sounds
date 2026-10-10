@@ -129,7 +129,6 @@ def test_recipe_adds_envelope_and_dry_once():
 def test_ambience_recipe_is_not_close_miked_and_allows_reverb():
     p = prompts.build_prompt("forest ambience")
     assert p["mode"] == "loop" and "close-mic" not in p["prompt"] and "stereo" in p["prompt"]
-    assert "reverb" not in p["negative"]
 
 
 def test_a_loop_request_gets_the_ambience_recipe():

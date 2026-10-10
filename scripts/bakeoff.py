@@ -1,13 +1,14 @@
 """Engine bake-off: the same animation prompts and seeds on every engine, scored by the
 automatic checks, then a blind A/B page to pick the default by ear.
 
-    python scripts/bakeoff.py                      # all prompts, 3 seeds each, both engines
-    python scripts/bakeoff.py --seeds 11,12 --only whoosh-sword,ui-confirm
+    python scripts/bakeoff.py --engines sa3,other          # all prompts, 3 seeds each, both engines
+    python scripts/bakeoff.py --engines sa3,other --seeds 11,12 --only whoosh-sword,ui-confirm
 
 Needs the server (started in its own window if it isn't running). Writes output/bakeoff/: results.json (every take's scores),
 summary.md (per-engine averages), the best take of each engine per prompt as blind
 A/B files, and index.html, served at http://127.0.0.1:8191/bakeoff/. Your votes on that
-page are stored in output/bakeoff/votes.json. Standard library only.
+page are stored in output/bakeoff/votes.json. For a new pair of engines, move output/bakeoff
+aside first (the votes are per prompt). Standard library only.
 """
 
 from __future__ import annotations
@@ -62,7 +63,7 @@ def mean(xs):
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--engines", default="sa3,moss")
+    ap.add_argument("--engines", required=True, help="the two engines to compare, e.g. sa3,other")
     ap.add_argument("--seeds", default="11,12,13")
     ap.add_argument("--only", help="comma-separated prompt ids")
     ap.add_argument("--page-only", action="store_true", help="rebuild the page from results.json")
@@ -145,12 +146,12 @@ def main() -> int:
                            "pq": (b.get("aes") or {}).get("PQ"), "seed": b["seed"], "ref": b["ref"],
                            "warnings": b.get("warnings", []), "rejected": b.get("rejected", False)}
         pairs.append({"id": pid, "text": text, "prompt": rs[0]["prompt"], "sides": sides})
-    (BAKEOFF / "index.html").write_text(page(pairs), encoding="utf-8")
+    (BAKEOFF / "index.html").write_text(page(pairs, engines), encoding="utf-8")
     print(f"\nA/B page: http://127.0.0.1:8191/bakeoff/  ({len(pairs)} pairs)")
     return 0
 
 
-def page(pairs: list[dict]) -> str:
+def page(pairs: list[dict], engines: list[str]) -> str:
     data = json.dumps(pairs)
     rows = []
     for i, p in enumerate(pairs, 1):
@@ -188,7 +189,7 @@ button.picked {{ background:var(--acc); color:#fff; border-color:var(--acc); }}
 .reveal {{ font-size:13px; color:var(--muted); margin-top:4px; min-height:1em; }}
 #tally {{ position:sticky; top:0; background:var(--bg); padding:8px 0; border-bottom:1px solid var(--line); z-index:2; }}
 </style></head><body>
-<h1>SFX bake-off: Stable Audio 3 Small-SFX vs MOSS-SoundEffect v2</h1>
+<h1>SFX bake-off: {html.escape(" vs ".join(engines))}</h1>
 <p>Each pair is the automatic checks' best take from each engine (same prompt, same 3 seeds).
 Sides are shuffled; the engine is revealed after you vote. Listen on headphones, then pick.</p>
 <div id="tally">No votes yet.</div>

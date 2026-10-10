@@ -55,7 +55,7 @@ SERVER = "http://127.0.0.1:8191"
 _OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 REPO = Path(__file__).resolve().parent.parent
 OUTPUT = REPO / "output"
-START_WAIT = 240.0  # seconds a fresh start may take: SA3 and the checkers ~30 s, MOSS ~75 s more
+START_WAIT = 240.0  # seconds a fresh start may take: SA3 and the checkers load in ~30 s
 BUSY_GPU_MB = 4000  # VRAM in use above this means another program holds the GPU (a desktop uses ~1-2 GB)
 
 
@@ -222,8 +222,8 @@ def sidecar(res: dict, take: dict, extra: dict | None = None) -> dict:
     keys = ("seed", "rank", "rank_score", "clap", "clap_cos", "clap_top", "aes", "caption", "fails", "warnings",
             "post", "final", "signal")
     return {"request": res["id"], "ref": take.get("ref"), "text": res.get("text"), "prompt": res.get("prompt"),
-            "negative": res.get("negative"), "engine": res.get("engine"), "model": res.get("model"),
-            "steps": res.get("steps"), "cfg": res.get("cfg"), "category": res.get("category"),
+            "engine": res.get("engine"), "model": res.get("model"), "steps": res.get("steps"),
+            "category": res.get("category"),
             **{k: take[k] for k in keys if k in take}, **(extra or {})}
 
 
@@ -296,8 +296,6 @@ def print_request(res: dict) -> None:
           f"{res.get('post', {}).get('mode')})")
     if res.get("prompt"):
         print(f"prompt:   {res['prompt']}")
-    if res.get("negative"):
-        print(f"negative: {res['negative']}" + ("  (ignored by this engine)" if "negative" in res.get("ignored", []) else ""))
     if "gen_s" in res:
         print(f"{len(res['takes'])} take(s) in {res['gen_s']}s + {res.get('score_s', 0)}s checks; {res['kept']} kept")
     for t in res["takes"]:
@@ -389,8 +387,8 @@ def run_request(a) -> dict:
         res = call(f"/api/requests/{a.take.replace('#', ':').split(':')[0]}")
     else:
         body = {"text": a.text, **post_fields(a), **given({
-            "n": a.n, "engine": a.engine, "category": a.category, "raw": a.raw, "negative": a.negative,
-            "steps": a.steps, "cfg": a.cfg, "window": a.window, "like": a.like,
+            "n": a.n, "engine": a.engine, "category": a.category, "raw": a.raw,
+            "steps": a.steps, "like": a.like,
             "like_strength": a.like_strength, "caption": a.caption, "check": a.check, "name": a.name,
             "cat_id": a.cat})}
         if a.stack and not a.n:
@@ -453,15 +451,11 @@ def build_parser(cls=argparse.ArgumentParser) -> argparse.ArgumentParser:
     g.add_argument("--n", type=int, help="takes to make and rank (best-of-N; default 4)")
     g.add_argument("--seed", help="start seed (takes use seed, seed+1, ...), or 'random' (the default)")
     g.add_argument("--seeds", help="exact seeds, comma-separated (e.g. to remake one take: --seeds 1234 --n 1)")
-    g.add_argument("--engine", choices=["sa3", "moss"], help="sa3 (Stable Audio 3 Small-SFX) or moss "
-                   "(MOSS-SoundEffect v2); default: the user's default")
+    g.add_argument("--engine", choices=["sa3"], help="sa3 (Stable Audio 3 Small-SFX, the only engine now); "
+                   "default: the user's default")
     g.add_argument("--category", help="force a recipe/category (see --categories); default: detected from the text")
     g.add_argument("--raw", action="store_true", default=None, help="send the text as written, no recipe")
-    g.add_argument("--negative", help="negative prompt (moss; sa3 small-sfx ignores it)")
-    g.add_argument("--steps", type=int, help="sampling steps (default: sa3 8, moss 100)")
-    g.add_argument("--cfg", type=float, help="guidance scale (moss; default 4)")
-    g.add_argument("--window", type=int, help="moss only: denoising window in seconds (5-30; default 30; smaller is a little faster, "
-                   "but quieter or cut-off takes are more likely)")
+    g.add_argument("--steps", type=int, help="sampling steps (default: the engine's, 8 for sa3; more rarely helps)")
     g.add_argument("--like", metavar="REF", help="more like this take (REQ:SEED): audio-to-audio from it (sa3)")
     g.add_argument("--like-strength", type=float, help="how far from --like to go: 0.05 (nearly a copy) .. 1 "
                    "(unrelated); default 0.5")
@@ -540,8 +534,8 @@ def validate(a, batch: bool = False) -> None:
 # --------------------------------------------------------------------------- cue sheets
 
 # What a cue may set: one sound's generation, post-processing, stack/variations and delivery.
-CUE_KEYS = ("text", "duration", "n", "seed", "seeds", "engine", "category", "raw", "negative", "steps", "cfg",
-            "window", "like", "like_strength", "caption", "check", "mode", "loop", "fps", "align_frame", "preroll",
+CUE_KEYS = ("text", "duration", "n", "seed", "seeds", "engine", "category", "raw", "steps",
+            "like", "like_strength", "caption", "check", "mode", "loop", "fps", "align_frame", "preroll",
             "reverb", "channels", "crossfade", "variations", "amount", "stack", "spread", "out", "best", "all",
             "png", "name", "cat")
 CUE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
@@ -876,7 +870,7 @@ def _main(a) -> int:
         r = call(f"/api/prompt?{q}")
         print(json.dumps(r, indent=2) if a.json else
               f"category {r['category']} ({r['cat_id']}, {r['mode']}, {r['duration']}s)\nprompt:   {r['prompt']}\n"
-              f"negative: {r['negative']}\nfile:     {r['name']}")
+              f"file:     {r['name']}")
         return 0
     if a.caption_only:
         refs = [a.take] if a.take else [t["ref"] for t in call(f"/api/requests/{a.post}")["takes"]]

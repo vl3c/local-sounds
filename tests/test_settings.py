@@ -33,7 +33,7 @@ def make_request(app, rid=RID, mode="oneshot", seeds=(1, 2)) -> dict:
     d.mkdir()
     po = post.PostOpts(mode=mode, duration=1.0 if mode == "oneshot" else 3.0)
     rec = {"id": rid, "created": "2026-10-04 12:00:00", "text": "sword hit", "prompt": "sword hit, dry",
-           "negative": "music", "category": "impact-metal", "cat_id": "METLImpt", "name": "SwordHit",
+           "category": "impact-metal", "cat_id": "METLImpt", "name": "SwordHit",
            "engine": "sa3", "model": "test", "seeds": list(seeds), "post": po.asdict(), "takes": []}
     finals = []
     for s in seeds:
@@ -56,11 +56,11 @@ def test_no_saved_settings_means_repo_defaults(app):
 
 
 def test_saving_keeps_only_what_differs_from_the_repo(app):
-    app.save_settings(app.Settings(engine="moss", n=4, fps=30, reverb="none"))
+    app.save_settings(app.Settings(engine="sa3", n=4, fps=30, reverb="room"))
     saved = json.loads(app.SETTINGS_FILE.read_text(encoding="utf-8"))
-    assert saved == {"engine": "moss", "fps": 30}             # n and reverb equal the repo's: not stored
+    assert saved == {"fps": 30, "reverb": "room"}             # engine and n equal the repo's: not stored
     eff = app.effective_settings()
-    assert eff["engine"] == "moss" and eff["fps"] == 30 and eff["n"] == 4
+    assert eff["reverb"] == "room" and eff["fps"] == 30 and eff["n"] == 4
 
 
 def test_a_fixed_seed_can_be_saved_and_cleared(app):
@@ -77,6 +77,12 @@ def test_a_broken_settings_file_falls_back_to_the_repo(app):
     assert app.effective_settings() == app.REPO_DEFAULTS
 
 
+def test_settings_saved_for_the_removed_moss_engine_keep_the_rest(app):
+    app.SETTINGS_FILE.write_text('{"engine": "moss", "negative": "music", "cfg": 4, "fps": 30}', encoding="utf-8")
+    eff = app.effective_settings()
+    assert eff["engine"] == "sa3" and eff["fps"] == 30 and "negative" not in eff and "cfg" not in eff
+
+
 def test_reset_removes_the_saved_settings(app):
     app.save_settings(app.Settings(n=2))
     app.reset_settings()
@@ -84,10 +90,10 @@ def test_reset_removes_the_saved_settings(app):
 
 
 def test_requests_take_saved_settings_only_for_what_they_leave_out(app):
-    app.save_settings(app.Settings(engine="moss", n=2, fps=30))
+    app.save_settings(app.Settings(reverb="hall", n=2, fps=30))
     req = app.GenReq(text="x", n=6)
     opt = app._resolve(req)
-    assert opt["engine"] == "moss" and opt["n"] == 6 and opt["fps"] == 30
+    assert opt["reverb"] == "hall" and opt["n"] == 6 and opt["fps"] == 30
 
 
 def test_generation_length_leaves_room_to_trim_and_loop(app):
@@ -266,7 +272,7 @@ def test_reprocess_to_an_impossible_loop_is_a_400(app):
 class StubWorker:
     """Stands in for an engine: writes synthetic hits where the real worker would write takes."""
     info = {"engine": "sa3", "model": "stub", "sample_rate": 44100, "max_duration": 120.0, "default_steps": 8,
-            "features": ["init_audio"], "ignores": ["negative", "cfg"]}
+            "features": ["init_audio"]}
 
     def __init__(self):
         self.jobs = []
@@ -286,10 +292,10 @@ def test_generate_end_to_end_with_a_stub_engine(app, monkeypatch):
     stub = StubWorker()
     monkeypatch.setattr(app, "worker", lambda name: stub)
     app.save_settings(app.Settings(n=3, fps=30))
-    res = app.generate(app.GenReq(text="sword hit", duration=1.0, align_frame=6, check=False, negative="music"))
+    res = app.generate(app.GenReq(text="sword hit", duration=1.0, align_frame=6, check=False))
     assert len(res["takes"]) == 3 and res["kept"] == 3 and res["cat_id"] == "METLImpt"
     assert stub.jobs[0]["duration"] == pytest.approx(1.75)        # 0.75 s more than needed, to trim
-    assert res["ignored"] == ["negative"]
+    assert "negative" not in stub.jobs[0] and "negative" not in res
     for t in res["takes"]:
         assert t["post"]["onset_frame"] == pytest.approx(6, abs=1e-3)   # at the saved 30 fps
         assert Path(t["paths"]["wav"]).is_file() and Path(t["paths"]["png"]).is_file()

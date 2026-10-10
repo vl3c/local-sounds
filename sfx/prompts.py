@@ -15,7 +15,6 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-DEFAULT_NEGATIVE = "low quality, distorted, music, speech, voice, reverb, background noise"
 DRY = "close-mic, dry, no reverb"
 
 
@@ -30,7 +29,6 @@ class Category:
     near_misses: tuple[str, ...]  # CLAP distractors: plausible confusions
     example: str = ""            # a terse request and the prompt it becomes (docs)
     dry: bool = True             # add "close-mic, dry, no reverb"
-    negative_extra: str = ""
     tags: tuple[str, ...] = field(default=())
 
 
@@ -58,8 +56,7 @@ CATEGORIES: list[Category] = [
     Category("whoosh", "WHSH", "oneshot", 1.2,
              ("whoosh", "swoosh", "swish", "swipe", "swing", "fly by", "flyby", "pass by", "woosh"),
              "single fast air whoosh passing by, swells in and fades out quickly",
-             ("wind blowing steadily", "a gunshot", "a car passing by"),
-             negative_extra="impact"),
+             ("wind blowing steadily", "a gunshot", "a car passing by")),
     Category("ui", "UIClick", "oneshot", 0.5,
              ("ui", "click", "blip", "beep", "button", "notification", "menu", "interface", "chime", "select",
               "confirm", "error sound", "tick"),
@@ -96,8 +93,7 @@ CATEGORIES: list[Category] = [
               "chicken", "rooster", "pigeon", "dove", "songbird", "flock", "chirp", "tweet", "squawk", "quack",
               "honk", "caw", "coo"),
              "natural bird calls, clear and close, no music",
-             ("music with melody and rhythm", "a person whistling", "a squeaky door hinge"),
-             negative_extra="whistling, flute"),
+             ("music with melody and rhythm", "a person whistling", "a squeaky door hinge")),
     Category("animal", "ANMLMisc", "oneshot", 2.0,
              ("dog", "bark", "cat", "meow", "purr", "horse", "neigh", "cow", "moo", "pig", "oink", "sheep", "goat",
               "frog", "croak", "monkey", "lion", "wolf", "howl", "elephant", "bear", "whale", "seal", "herd"),
@@ -107,8 +103,7 @@ CATEGORIES: list[Category] = [
              ("creature", "monster", "growl", "roar", "snarl", "hiss", "dragon", "beast", "screech", "goblin",
               "zombie", "alien"),
              "single creature vocalisation, guttural and animal-like, clear start and end",
-             ("a person talking", "a lion roaring at a zoo", "a car engine revving"),
-             negative_extra="human speech, words"),
+             ("a person talking", "a lion roaring at a zoo", "a car engine revving")),
     Category("explosion", "EXPLReal", "oneshot", 4.0,
              ("explosion", "explode", "blast", "bomb", "detonation", "boom", "grenade", "kaboom"),
              "single powerful explosion, sudden blast, deep low-end rumble, debris tail",
@@ -119,7 +114,7 @@ CATEGORIES: list[Category] = [
               "fire crackling", "campfire", "stream", "river", "steady", "continuous"),
              "continuous steady ambience, constant texture, no sudden events",
              ("music playing", "a single loud bang", "people talking nearby"),
-             dry=False, negative_extra="sudden loud sounds"),
+             dry=False),
     Category("misc", "DSGNMisc", "oneshot", 2.0, (), "single clear sound event, clean start and end",
              ("a dog barking", "a car passing by")),
 ]
@@ -163,7 +158,7 @@ def _has(text: str, *words: str) -> bool:
 
 
 def build_prompt(text: str, category: str | None = None, raw: bool = False, mode: str | None = None) -> dict:
-    """{"prompt", "negative", "category", "mode", "duration"} for a request.
+    """{"prompt", "category", "mode", "duration"} for a request.
 
     raw=True sends the text as written (still picks a category, for naming and defaults).
     A loop or ambience `mode` gets the ambience recipe unless the category is forced: "rain on
@@ -173,11 +168,7 @@ def build_prompt(text: str, category: str | None = None, raw: bool = False, mode
     cat = BY_KEY[category] if category else detect(text)
     if not category and mode in ("loop", "ambience") and cat.mode == "oneshot":
         cat = BY_KEY["ambience"]
-    negative = DEFAULT_NEGATIVE + (f", {cat.negative_extra}" if cat.negative_extra else "")
-    if cat.mode != "oneshot":
-        negative = negative.replace("reverb, ", "")  # a space is part of an ambience
-    out = {"category": cat.key, "cat_id": cat.cat_id, "mode": cat.mode, "duration": cat.duration,
-           "negative": negative}
+    out = {"category": cat.key, "cat_id": cat.cat_id, "mode": cat.mode, "duration": cat.duration}
     if raw:
         return {**out, "prompt": text}
     parts = [text]
