@@ -146,3 +146,27 @@ def test_medium_is_only_downloaded_when_asked_for(monkeypatch, args, expected):
     monkeypatch.setattr(dl, "fetch", lambda e, lock, reuse, verify: seen.append(e["name"]) or True)
     monkeypatch.setattr(sys, "argv", ["download_models.py", "--verify", *args])
     assert dl.main() == 0 and set(seen) == expected
+
+
+def test_gpu_memory_is_read_for_the_whole_card(app, monkeypatch):
+    """Not torch's figure: on Windows it leaves out other programs, which is how a full card looked
+    empty and Medium loaded next to another model server, paging it out."""
+    class Done:
+        stdout = "13724, 16303\n"
+    calls = []
+    monkeypatch.setattr(app, "_gpu_cache", (0.0, None))
+    monkeypatch.setattr(app.subprocess, "run", lambda cmd, **k: calls.append(cmd) or Done())
+    used, total = app.gpu_memory_gb()
+    assert round(used, 2) == 13.4 and round(total, 2) == 15.92 and "--query-gpu=memory.used,memory.total" in calls[0]
+    assert round(app._gpu_free_gb(), 2) == 2.52 and len(calls) == 1  # cached for a moment
+    h = app.health()
+    assert h["vram_used_gb"] == 13.4 and h["vram_total_gb"] == 15.92
+
+
+def test_no_nvidia_smi_means_unknown_not_empty(app, monkeypatch):
+    def missing(cmd, **k):
+        raise FileNotFoundError(cmd[0])
+    monkeypatch.setattr(app, "_gpu_cache", (0.0, None))
+    monkeypatch.setattr(app.subprocess, "run", missing)
+    assert app.gpu_memory_gb() is None and app._gpu_free_gb() is None
+    assert app.health()["vram_total_gb"] == 0.0

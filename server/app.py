@@ -160,12 +160,33 @@ def _not_installed(name: str) -> str:
     return f"engine {name!r} isn't installed: re-run install.ps1"
 
 
-def _gpu_free_gb() -> float | None:
+_gpu_cache: tuple[float, tuple[float, float] | None] = (0.0, None)
+
+
+def gpu_memory_gb() -> tuple[float, float] | None:
+    """(used, total) GB on the whole card, from nvidia-smi; None if it can't tell. Not from torch:
+    on Windows (WDDM) torch.cuda.mem_get_info doesn't count other programs' memory, so a card that
+    another model server fills looks nearly empty. Cached for 3 s (the page polls /api/health)."""
+    global _gpu_cache
+    if time.monotonic() - _gpu_cache[0] < 3:
+        return _gpu_cache[1]
+    exe = shutil.which("nvidia-smi") or os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32",
+                                                     "nvidia-smi.exe")
+    out = None
     try:
-        import torch
-        return torch.cuda.mem_get_info()[0] / 2**30 if torch.cuda.is_available() else None
-    except Exception:
-        return None
+        line = subprocess.run([exe, "--query-gpu=memory.used,memory.total", "--format=csv,noheader,nounits"],
+                              capture_output=True, text=True, timeout=10).stdout.splitlines()[0]
+        used, total = (float(x) / 1024 for x in line.split(","))
+        out = (used, total)
+    except (OSError, subprocess.SubprocessError, IndexError, ValueError):
+        pass
+    _gpu_cache = (time.monotonic(), out)
+    return out
+
+
+def _gpu_free_gb() -> float | None:
+    m = gpu_memory_gb()
+    return None if m is None else m[1] - m[0]
 
 
 class Worker:
@@ -942,13 +963,12 @@ def engines():
 
 @app.get("/api/health")
 def health():
-    import torch
-    free, total = torch.cuda.mem_get_info() if torch.cuda.is_available() else (0, 0)
+    used, total = gpu_memory_gb() or (0.0, 0.0)  # the whole card, every program on it
     return {"ok": True, "version": __version__,
             "engines": {k: (k in _workers and _workers[k].alive()) for k in ENGINES},
             "clap_loaded": _clap is not None, "aesthetics_loaded": _aes is not None,
             "captioner_installed": captioner_installed(), "busy": _lock.locked(),
-            "vram_used_gb": round((total - free) / 2**30, 2), "vram_total_gb": round(total / 2**30, 2)}
+            "vram_used_gb": round(used, 2), "vram_total_gb": round(total, 2)}
 
 
 @app.get("/api/settings")
