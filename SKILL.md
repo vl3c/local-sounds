@@ -1,6 +1,6 @@
 ---
 name: local-sounds
-description: Generate sound effects locally for animation (impacts, whooshes, UI blips, footsteps, cartoon boings and pops, magic, sci-fi machines, creatures, explosions, ambience loops) with Stable Audio 3 Small-SFX or MOSS-SoundEffect v2 on this machine's GPU. Every take is checked automatically (clipping, silence, noise, onset; CLAP prompt match; Audiobox production quality) and ranked best-of-N, then trimmed so the hit lands at t=0 or on a chosen frame, looped seamlessly, varied round-robin or layered, and delivered as 48 kHz 24-bit WAVs with UCS names to a folder the user names; a whole film's cue sheet runs in one resumable batch. Use when the user (or an animation task) needs SFX, foley, a sound for a frame, an ambience loop, or wants sound effects made without a cloud service. Not for music or speech.
+description: Generate sound effects locally for animation (impacts, whooshes, UI blips, footsteps, cartoon boings and pops, magic, sci-fi machines, creatures, explosions, ambience loops) with Stable Audio 3 Small-SFX on this machine's GPU. Every take is checked automatically (clipping, silence, noise, onset; CLAP prompt match; Audiobox production quality) and ranked best-of-N, then trimmed so the hit lands at t=0 or on a chosen frame, looped seamlessly, varied round-robin or layered, and delivered as 48 kHz 24-bit WAVs with UCS names to a folder the user names; a whole film's cue sheet runs in one resumable batch. Use when the user (or an animation task) needs SFX, foley, a sound for a frame, an ambience loop, or wants sound effects made without a cloud service. Not for music or speech.
 ---
 
 # local-sounds: frame-ready sound effects on the local GPU
@@ -42,9 +42,8 @@ sheet (section 2, "Cue sheets").
 3. **Generate with the animation settings**: `--align-frame 36 --fps 24 --duration 1.5`;
    the ambience: `"forge ambience, fire roaring, hammer taps far away" --loop --duration 8`.
 4. **Read the ranking** (section 4): rejected takes are listed but not delivered; check the
-   warnings and Read the top take's PNG. If nothing is good: another `--n`, rephrase, or the
-   other engine (`--engine moss|sa3`).
-5. **Iterate**: `--like <ref>` for "more like #3" (sa3), `--post <request id> --align-frame 40`
+   warnings and Read the top take's PNG. If nothing is good: another `--n`, or rephrase.
+5. **Iterate**: `--like <ref>` for "more like #3", `--post <request id> --align-frame 40`
    to move the hit without regenerating, `--variations 5` for round-robins.
 6. **Deliver** to the folder the user named (`--out`), and **report**: the paths, each take's
    ref and seed, the scores, any warnings, and that the server is still running in its window,
@@ -62,10 +61,10 @@ sheet (section 2, "Cue sheets").
 - **Everything stays local.** The server listens on 127.0.0.1 only and never touches the
   network. Don't fall back to a cloud SFX service without asking.
 - **Sound effects only**: not music, not speech. A creature *vocalisation* is fine; words are not.
-- **Licences** (`LICENSE-MODELS.md`): MOSS-SoundEffect is Apache-2.0; Stable Audio 3 is under
-  the Stability AI Community License (free for non-commercial use, and for commercial use under
-  US $1M a year in revenue after registering with Stability AI; the user owns the sounds). If
-  the user plans commercial use, mention it once.
+- **Licences** (`LICENSE-MODELS.md`): Stable Audio 3 is under the Stability AI Community
+  License (free for non-commercial use, and for commercial use under US $1M a year in revenue
+  after registering with Stability AI; the user owns the sounds). If the user plans commercial
+  use, mention it once.
 - **The server is only started and stopped, and only ever runs in its own visible window.**
   Never run `server/app.py` yourself or start the server hidden (it refuses anyway), and don't
   look for ways to unload its models: stopping it is how the GPU is freed.
@@ -78,30 +77,29 @@ curl -s http://127.0.0.1:8191/api/health          # JSON = the server is up: eng
 nvidia-smi --query-gpu=memory.used,memory.total --format=csv,noheader
 ```
 
-The server holds Stable Audio 3 (~2.5 GB) and the checkers (~1.5 GB) by default; MOSS adds
-~7.5 GB (up to ~10 GB while generating) when first used. Both engines together peak around
-14 GB of a 16 GB card. Another model server on the same card doesn't fail: the driver silently
-pages the overflow into system RAM and both crawl.
+The server holds Stable Audio 3 (~2.5 GB) and the checkers (~1.5 GB), ~4 GB in all. Another
+model server on the same card doesn't fail: the driver silently pages the overflow into system
+RAM and both crawl.
 
 **Starting.** Just run `sfx.py`: when the server isn't running, it starts it with `start.cmd`
 in its own visible console window titled "local-sounds server - close this window to stop it",
-waits until it's ready (SA3 ~25 s; MOSS loads on its first request, ~75 s more) and carries on.
+waits until it's ready (~30 s) and carries on.
 It won't start it while another program holds over 4 GB of GPU memory: it exits 1 saying how
 much is in use. Then **ask the user** before stopping that program (with its own stop command,
 never by killing processes); `--start-anyway` only if they say to run both. If the `local-gpu`
 skill is installed, `python ~/.claude/skills/local-gpu/gpu.py switch local-sounds` does this: it
 shows what holds the GPU, stops it after the user confirms, and starts this server. The same
-start by hand, e.g. with both engines loaded at once:
+start by hand:
 
 ```bash
-cmd //c "$(cygpath -w ~/.claude/skills/local-sounds/start.cmd)" --no-browser --engines sa3,moss
+cmd //c "$(cygpath -w ~/.claude/skills/local-sounds/start.cmd)" --no-browser
 ```
 
 That window is the only place the server runs (it refuses any other start), and it stays the
 user's: leave it open. If the server doesn't come up, read the window or
 `~/.claude/skills/local-sounds/logs/server.log` (previous run: `server.previous.log`). If `.venv`
 or `models/` is missing, the tool isn't installed: `install.ps1 -AcceptModelLicenses` downloads
-~20 GB (~35 GB on disk) under licences the user accepts, so ask the user first.
+~10 GB (~17 GB on disk) under licences the user accepts, so ask the user first.
 
 ## 2. Commands
 
@@ -115,7 +113,7 @@ $PY $S "sword hit on a shield" --duration 1.2 --out <dir>                 # best
 $PY $S "door slam" --align-frame 36 --fps 24 --out <dir>                  # hit exactly on frame 36
 $PY $S "rain on a tin roof" --loop --duration 8 --out <dir>               # seamless 8 s loop
 $PY $S "footstep on gravel" --variations 5 --out <dir>                    # round-robin v01..v05
-$PY $S "laser zap" --like 20261004-142803-c6ab:13 --out <dir>             # more like that take (sa3)
+$PY $S "laser zap" --like 20261004-142803-c6ab:13 --out <dir>             # more like that take
 $PY $S --post 20261004-142803-c6ab --align-frame 40                         # re-process, no regeneration
 $PY $S --post 20261004-142803-c6ab --no-align                               # hit back to t = 0
 $PY $S --variations 5 --take 20261004-142803-c6ab:13 --out <dir>             # round-robins of an earlier take
@@ -133,16 +131,15 @@ server's full response (plus `delivered`): parse that rather than the text.
 |---|---|
 | `--duration S` | One-shots: the most it may last (trimmed to the actual sound, then padded to whole frames). Ambiences and loops: exactly this. Default: the category's (0.5-4 s one-shots, 10 s ambiences). |
 | `--n N` / `--seed N\|random` / `--seeds a,b` | Best-of-N on seeds seed, seed+1, ... (random start by default). `--seeds 1234 --n 1` remakes one take exactly. |
-| `--engine sa3\|moss` | See "Engines" below. Default: the user's default (`--settings`). |
+| `--engine sa3` | The engine; sa3 is the only one for now (see "Engines" below). |
 | `--mode oneshot\|ambience\|loop`, `--loop` | Default: the category's (ambiences default to `loop`). |
 | `--align-frame F --fps R` / `--no-align` | Put the transient exactly on frame F (one-shots); `--no-align` (with `--post`) removes it. Default fps 24 (2000 samples a frame at 48 kHz; 30 fps 1600; 60 fps 800). Without it the hit sits at 3 ms (the pre-roll). |
 | `--preroll MS` | Silence before the transient, default 3 ms (2-5 is usual). |
 | `--reverb none\|room\|hall` | Dry by default: the animation's mix adds the space. |
 | `--channels auto\|mono\|stereo` | auto: mono one-shots, stereo ambiences. |
 | `--category K` / `--raw` | Force a recipe / send the text exactly as written. |
-| `--negative "..."` | moss only (sa3 small-sfx ignores negative prompts). Default: `low quality, distorted, music, speech, voice, reverb, background noise` plus the category's extras. |
-| `--steps`, `--cfg`, `--window` | Engine knobs: sa3 8 steps; moss 100 steps, CFG 4, 30 s window. Rarely needed. |
-| `--like REF --like-strength X` | Audio-to-audio from a take (sa3): 0.3 close, 0.5 default, 0.8 loose. |
+| `--steps N` | Engine knob: sa3 uses 8 steps. Rarely needed. |
+| `--like REF --like-strength X` | Audio-to-audio from a take: 0.3 close, 0.5 default, 0.8 loose. |
 | `--variations N --amount X` | Round-robin set from the best take (or `--take REF`): v01 is the take, then +-0.8 semitone speed and +-2 dB EQ changes (`--amount 2` doubles them). |
 | `--stack N [--spread MS]` | Make the sound, then mix its best N kept takes into one (all at the same volume, hits together; `--spread 40` staggers each by 40 ms). Generates at least N+1 takes. With `--out`, delivers the stack **and** the best single take. Works on an earlier request with `--post REQ --stack N`. See "Stacking" in section 5. |
 | `--layer REF[,gain=DB][,offset=MS\|Nf]` | Repeat per layer; each layer's transient lands at its offset from the first layer's; mixed through a limiter to -1 dBTP. With `--loop`, loops are wrapped to the first one's length so the mix still loops. A layered mix can't be `--post`-processed: re-make it. |
@@ -202,18 +199,9 @@ $PY $S --batch <dir>/film.json --out <dir>              # runs them; one line pe
 
 ### Engines
 
-| | sa3: Stable Audio 3 Small-SFX | moss: MOSS-SoundEffect v2.0 |
-|---|---|---|
-| Speed (RTX 5080) | ~0.5 s a take | ~13 s a take (100 steps over a 30 s window) |
-| Output | 44.1 kHz stereo (resampled to 48 kHz) | 48 kHz mono |
-| Length | up to 120 s | up to 30 s (so loops up to ~13 s) |
-| Negative prompt / CFG | ignored | used |
-| More like this (`--like`) | yes | no |
-| Licence | Stability AI Community | Apache-2.0 |
-
-Default: sa3, the user's pick in a blind bake-off (9 wins to 4; moss won rock, boing, magic and
-explosion). `--settings` shows the default in effect. For a quick draft or many
-variants use sa3; when a sound needs the negative prompt or sa3's takes keep missing, try moss.
+sa3, Stable Audio 3 Small-SFX, is the engine: ~0.5 s a take on an RTX 5080; 44.1 kHz stereo
+(resampled to 48 kHz); up to 120 s; more like this (`--like`) works. It ignores negative
+prompts and CFG, so they aren't offered. Licence: Stability AI Community.
 
 ## 3. Prompting
 
@@ -301,7 +289,7 @@ rotated so the seam is in the middle). What to look for:
 
 - **Delivered files**: 48 kHz, 24-bit PCM WAV (After Effects can't import FLAC), INFO chunk
   with title (UCS name), prompt, seed, model, scores and request id; a JSON sidecar next to
-  each with everything (prompt, negative, engine, seed, scores, post-processing report).
+  each with everything (prompt, engine, seed, scores, post-processing report).
 - **One-shots**: trimmed with a 3 ms pre-roll and 1 ms fade-in, exponential fade-out,
   mono, peak-normalised to **-1 dBTP**, padded to whole frames. `onset_frame` in the
   output says exactly where the hit is.
@@ -331,9 +319,8 @@ rotated so the seam is in the middle). What to look for:
   make the anchor (`--n 6`), have the user pick the take (or take the best), then
   `"<text>" --like <ref> --like-strength 0.6 --n 8 --all --out <dir>`. Each seed is a different
   sound with the anchor's character, and the text may change per call ("glitch stutter",
-  "glitch burst"). Strength 0.3 stays close, 0.5 varies, 0.8 keeps only the broad colour. sa3
-  only; with moss, keep the prompt's core words fixed and vary one detail. In a cue sheet:
-  `"like": "@anchor"`.
+  "glitch burst"). Strength 0.3 stays close, 0.5 varies, 0.8 keeps only the broad colour. In a
+  cue sheet: `"like": "@anchor"`.
 
 ## 6. Delivering and finishing
 
@@ -342,7 +329,7 @@ re-deliver an earlier take: `--post <request id> --out <dir>` (re-processes with
 post-processing flags first). Then tell the user the paths, refs, seeds and scores, and relay
 warnings.
 
-The server keeps the engines in VRAM until it stops: that's what makes the next request fast,
+The server keeps its models in VRAM until it stops: that's what makes the next request fast,
 but it blocks other GPU programs. **Leave it running and tell the user** it's up (in its
 window); stop it when they're done or need the GPU. Stopping is the only way to free it:
 
@@ -369,5 +356,4 @@ audition or hand-place layers themselves.
   GPU. Ask the user whether to stop it (with its own stop command) or run anyway.
 - Every take rejected for clipping or static: rephrase or change seeds; report it if it
   repeats (sa3 needs whole-second lengths internally; the worker rounds up for you).
-- MOSS is slow by design (100 steps on a 30 s window): ~13 s a take, so `--n 2` for drafts.
 - After changing code, run the tests: `cd ~/.claude/skills/local-sounds && .venv/Scripts/python.exe -m pytest tests -q`.

@@ -24,7 +24,7 @@ NOISE = re.compile("|".join([
     r"Pipeline assembled on", r"^\s*(Loaded|Loading) ", r"Mismatch dtype between input and weight",
     r"return torch\.rms_norm", r"WeightNorm\.apply", r"weight_norm` is deprecated",
     r"is deprecated(!| for | and will be removed)",  # library API-change notices
-    r"^\[(sa3|moss)\] loaded in", r"^\[(sa3|moss)\] \d+ take",
+    r"^\[\w+\] loaded in", r"^\[\w+\] \d+ take",
     r"^\S+\.py:\d+: \w*Warning:", r"^\s*warnings\.warn\(",  # library deprecation notices
     r"^\s*(ai|ti) = self\.proc\(",
 ]))

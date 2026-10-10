@@ -1,12 +1,12 @@
 """The line protocol between the server and an engine worker (standard library only).
 
-Each engine runs in its own venv (their dependencies clash: SA3 wants torch 2.7 and
-transformers 5, MOSS torch 2.9 and transformers 4.57), as a child process of the server.
-They talk over stdin/stdout, one JSON object per line:
+Each engine runs in its own venv (its dependencies clash with the server's: SA3 wants torch
+2.7 and transformers 5, the server's checkers torch 2.9 and transformers 4.57), as a child
+process of the server. They talk over stdin/stdout, one JSON object per line:
 
     <- {"ready": true, "engine": ..., "sample_rate": ..., "max_duration": ..., "features": [...]}
-    -> {"op": "generate", "prompt": ..., "negative": ..., "duration": 3.5, "seeds": [1, 2],
-        "steps": 8, "cfg": 1.0, "out_dir": "...", "stem": "...",
+    -> {"op": "generate", "prompt": ..., "duration": 3.5, "seeds": [1, 2],
+        "steps": 8, "out_dir": "...", "stem": "...",
         "init_audio": path | null, "init_strength": 0.5}
     <- {"ok": true, "files": [{"seed": 1, "path": "..."}], "sample_rate": 44100, "gen_s": 1.2}
     <- {"ok": false, "error": "..."}

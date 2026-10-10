@@ -4,7 +4,7 @@ Loopback only (127.0.0.1:8191). Each engine runs in its own venv as a child proc
 (server/workers/); this process holds the checkers (CLAP, Audiobox Aesthetics, and the
 optional captioner) and does all post-processing, so every take is judged the same way.
 
-    .venv\\Scripts\\python.exe server\\app.py [--port 8191] [--engines sa3,moss] [--lazy]
+    .venv\\Scripts\\python.exe server\\app.py [--port 8191] [--engines sa3] [--lazy]
 
 A request makes N takes (best-of-N, default 4) on consecutive seeds, checks and scores
 each, rejects the failures and returns them all ranked. Its files live in output/<id>/:
@@ -101,9 +101,6 @@ _file_lock = threading.Lock()  # settings and votes: small files that mustn't wa
 ENGINES = {
     "sa3": {"venv": ".venv-sa3", "script": "sa3_worker.py", "weights": "sa3-small-sfx/model.safetensors",
             "label": "Stable Audio 3 Small-SFX"},
-    "moss": {"venv": ".venv-moss", "script": "moss_worker.py",
-             "weights": "moss-sfx-v2/transformer/diffusion_pytorch_model.safetensors",
-             "label": "MOSS-SoundEffect v2.0"},
 }
 
 
@@ -253,12 +250,10 @@ def _release_cache() -> None:
 # The built-in defaults. The user's own, saved from the page, live in config.local.json
 # (gitignored) and override them for the page and for every request that leaves a key out.
 REPO_DEFAULTS = {
-    "engine": "sa3",          # the bake-off pick (see README "Engines")
+    "engine": "sa3",          # see README "Engines"
     "n": 4,                   # best-of-N
     "seed": None,             # None: a random start seed; takes use seed, seed+1, ...
-    "steps": None,            # None: the engine's default (sa3 8, moss 100)
-    "cfg": None,              # None: the engine's default (moss 4.0; sa3 ignores it)
-    "negative": None,         # None: the category's default negative prompt
+    "steps": None,            # None: the engine's default (sa3 8)
     "raw": False,             # True: send the text as written, no recipe
     "fps": 24.0,
     "preroll_ms": 3.0,
@@ -277,12 +272,10 @@ Mode = Literal["oneshot", "ambience", "loop"]
 class Settings(BaseModel):
     """What can be saved. Omitted keys fall back to the repo defaults; seed null = random."""
     model_config = {"extra": "forbid"}
-    engine: Literal["sa3", "moss"] | None = None
+    engine: Literal["sa3"] | None = None
     n: int | None = Field(None, ge=1, le=16)
     seed: int | None = Field(None, ge=0, lt=2**31)
     steps: int | None = Field(None, ge=1, le=250)
-    cfg: float | None = Field(None, ge=0.5, le=15)
-    negative: str | None = Field(None, max_length=500)
     raw: bool | None = None
     fps: float | None = Field(None, ge=1, le=240)
     preroll_ms: float | None = Field(None, ge=0, le=50)
@@ -301,10 +294,18 @@ def _keep(data: dict) -> dict:
     return {k: v for k, v in data.items() if v is not None or k == "seed"}
 
 
+# Saved settings that no longer exist: the MOSS engine and its negative prompt and guidance.
+# A file that still has them keeps its other settings.
+RETIRED_SETTINGS = {"cfg", "negative"}
+
+
 def local_settings() -> dict:
     """The user's saved settings, validated; {} if none (or the file is unreadable)."""
     try:
         raw = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
+        if isinstance(raw, dict):
+            raw = {k: v for k, v in raw.items() if k not in RETIRED_SETTINGS
+                   and not (k == "engine" and v not in ENGINES)}
         return _keep(Settings(**raw).model_dump(exclude_unset=True))
     except FileNotFoundError:
         return {}
@@ -355,11 +356,8 @@ class GenReq(PostFields):
     n: int | None = Field(None, ge=1, le=16)
     seed: int | None = Field(None, ge=0, lt=2**31)  # omitted: the saved default (random unless saved); null: random
     seeds: list[int] | None = Field(None, max_length=16)
-    engine: Literal["sa3", "moss"] | None = None
+    engine: Literal["sa3"] | None = None
     steps: int | None = Field(None, ge=1, le=250)
-    cfg: float | None = Field(None, ge=0.5, le=15)
-    negative: str | None = Field(None, max_length=500)
-    window: int | None = Field(None, ge=5, le=30)  # moss only: denoising window, seconds (default 30)
     like: str | None = None                         # "<request id>:<seed>": more like that take
     like_strength: float | None = Field(None, ge=0.05, le=1.0)
     pad_s: float | None = Field(None, ge=0, le=5)
@@ -540,13 +538,12 @@ def take_view(rec: dict, take: dict) -> dict:
 
 
 def request_view(rec: dict) -> dict:
-    keep = ("id", "created", "text", "prompt", "negative", "raw", "category", "cat_id", "name", "engine", "model",
-            "seeds", "steps", "cfg", "window", "like", "post", "gen_length_s", "gen_s", "score_s", "warnings",
+    keep = ("id", "created", "text", "prompt", "raw", "category", "cat_id", "name", "engine", "model",
+            "seeds", "steps", "like", "post", "gen_length_s", "gen_s", "score_s", "warnings",
             "kind", "stack", "layers", "compare")
     out = {k: rec[k] for k in keep if k in rec}
     out["takes"] = [take_view(rec, t) for t in rec["takes"]]
     out["kept"] = sum(not t.get("rejected") for t in rec["takes"])
-    out["ignored"] = rec.get("ignored", [])
     return out
 
 
@@ -559,7 +556,6 @@ def generate(req: GenReq):
     mode = req.mode or cat.mode
     duration = req.duration or cat.duration
     engine = opt["engine"]
-    negative = opt["negative"] if opt["negative"] is not None else built["negative"]
     if req.seeds:
         seeds = list(req.seeds)
     else:
@@ -592,21 +588,19 @@ def generate(req: GenReq):
                 raise HTTPException(400, f"{engine} makes at most {info['max_duration']:.0f} s")
             length = info["max_duration"]
         if like_path is not None and "init_audio" not in info["features"]:
-            raise HTTPException(400, f"{engine} can't do 'more like this' (audio-to-audio); use --engine sa3, "
-                                     "or reuse the take's seed with a tweaked prompt")
+            raise HTTPException(400, f"{engine} can't do 'more like this' (audio-to-audio): reuse the take's "
+                                     "seed with a tweaked prompt instead")
         rid = new_id()
         d = OUTPUT / rid
         d.mkdir(parents=True)
         rec = {"id": rid, "created": time.strftime("%Y-%m-%d %H:%M:%S"), "text": req.text, "prompt": built["prompt"],
-               "negative": negative, "raw": bool(opt["raw"]), "category": cat.key,
+               "raw": bool(opt["raw"]), "category": cat.key,
                "cat_id": req.cat_id or cat.cat_id, "name": req.name or prompts.fx_name(req.text),
                "engine": engine, "model": info["model"], "seeds": seeds,
-               "steps": opt["steps"] or info["default_steps"], "cfg": opt["cfg"], "window": req.window,
-               "like": req.like, "post": po.asdict(), "gen_length_s": round(length, 2), "takes": [],
-               "ignored": [k for k in info.get("ignores", []) if
-                           (k == "negative" and (req.negative or saved.get("negative"))) or (k == "cfg" and opt["cfg"])]}
-        job = {"op": "generate", "prompt": built["prompt"], "negative": negative, "duration": length, "seeds": seeds,
-               "steps": rec["steps"], "cfg": opt["cfg"], "out_dir": str(d), "stem": "gen", "window": req.window}
+               "steps": opt["steps"] or info["default_steps"],
+               "like": req.like, "post": po.asdict(), "gen_length_s": round(length, 2), "takes": []}
+        job = {"op": "generate", "prompt": built["prompt"], "duration": length, "seeds": seeds,
+               "steps": rec["steps"], "out_dir": str(d), "stem": "gen"}
         if like_path is not None:
             job.update(init_audio=str(like_path), init_strength=opt["like_strength"])
         t0 = time.time()
@@ -855,7 +849,7 @@ def caption(req: CaptionReq):
 
 @app.get("/api/prompt")
 def preview_prompt(text: str, category: str | None = None, raw: bool = False, mode: str | None = None):
-    """The prompt, negative prompt, category and UCS name a request would use. Nothing is generated."""
+    """The prompt, category and UCS name a request would use. Nothing is generated."""
     if category is not None and category not in prompts.BY_KEY:
         raise HTTPException(400, f"unknown category {category!r}")
     b = prompts.build_prompt(text, category, raw=raw, mode=mode)
@@ -928,7 +922,7 @@ def files(rid: str, name: str):
 
 class Vote(BaseModel):
     prompt_id: str = Field(max_length=40, pattern=r"^[A-Za-z0-9_-]+$")
-    winner: Literal["sa3", "moss", "tie", "neither"]
+    winner: str = Field(max_length=20, pattern=r"^[a-z0-9-]+$")  # an engine's key, "tie" or "neither"
     note: str | None = Field(None, max_length=500)
 
 

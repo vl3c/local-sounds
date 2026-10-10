@@ -5,8 +5,8 @@ rem
 rem   start.cmd                 the server opens in its own window and this returns at once;
 rem                             the page opens in your browser once it's ready
 rem   start.cmd --no-browser    the same without opening the page (what agents use)
-rem   start.cmd --engines sa3,moss   start both engines now (default: just the default one;
-rem                             the other starts on its first request)
+rem   start.cmd --engines sa3   start these engines now (default: just the default one; any
+rem                             other starts on its first request)
 rem
 rem The server only ever runs in that window, so it can't be left running out of sight: it
 rem refuses to start anywhere else (a hidden background shell, python server\app.py).
@@ -36,11 +36,10 @@ set "ENG="
 if "%~1"=="" goto argsdone
 if /i "%~1"=="--no-browser" (set "BROWSER=" & shift /1 & goto args)
 if /i "%~1"=="--in-window"  (set "INWIN=1" & shift /1 & goto args)
-rem cmd splits "sa3,moss" at the comma, so engine names are collected wherever they appear.
+rem cmd splits "a,b" at the comma, so engine names are collected wherever they appear.
 if /i "%~1"=="--engines"    (shift /1 & goto args)
 if /i "%~1"=="sa3"          (set "ENG=%ENG%,sa3" & shift /1 & goto args)
-if /i "%~1"=="moss"         (set "ENG=%ENG%,moss" & shift /1 & goto args)
-echo Unknown option "%~1". Use:  start.cmd [--no-browser] [--engines sa3,moss]
+echo Unknown option "%~1". Use:  start.cmd [--no-browser] [--engines sa3]
 exit /b 2
 :argsdone
 if defined ENG set "EXTRA=--engines %ENG:~1%"

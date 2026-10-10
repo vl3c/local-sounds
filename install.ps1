@@ -1,11 +1,12 @@
 <#
 .SYNOPSIS
-    Set up local-sounds: a fully local sound-effects generator (Stable Audio 3 Small-SFX and
-    MOSS-SoundEffect v2) with automatic checks, on this machine's NVIDIA GPU.
+    Set up local-sounds: a fully local sound-effects generator (Stable Audio 3 Small-SFX)
+    with automatic checks, on this machine's NVIDIA GPU.
 
 .DESCRIPTION
-    Clones the two engines' inference code at pinned commits into engine\, builds three
-    venvs (their dependencies clash), installs CUDA 12.8 builds of PyTorch, and fetches the
+    Clones the engine's inference code at a pinned commit into engine\, builds two venvs
+    (the server's and the engine's: their dependencies clash), installs CUDA 12.8 builds of
+    PyTorch, and fetches the
     weights with checksum verification into models\. Nothing here uploads anything.
 
     Re-running is safe: every finished step is skipped and downloads resume.
@@ -19,11 +20,11 @@
     Works on Windows PowerShell 5.1 and PowerShell 7+.
 
 .PARAMETER PythonVersion
-    Python version for the venvs, passed to the 'py' launcher (3.12 or newer: MOSS needs it).
+    Python version for the venvs, passed to the 'py' launcher (3.12 or newer).
 
 .PARAMETER AcceptModelLicenses
     Accept the model weights' licences (Stable Audio 3: Stability AI Community License;
-    MOSS-SoundEffect and the scorers: Apache-2.0 / CC-BY-4.0; see LICENSE-MODELS.md).
+    the scorers: Apache-2.0 / CC-BY-4.0; see LICENSE-MODELS.md).
     Required to download them; without it the installer lists them and stops.
 
 .PARAMETER ReuseModels
@@ -72,9 +73,7 @@ if (-not $RepoRoot) { $RepoRoot = (Get-Location).Path }
 $SA3_REPO    = 'https://github.com/Stability-AI/stable-audio-3.git'
 $SA3_COMMIT  = '3a82c807b69cf4b7c5c05270011a5d5e47abac18'
 $SA3_TORCH   = '2.7.1'   # what the stable-audio-3 library pins (with cu128 wheels instead of cu126)
-$MOSS_REPO   = 'https://github.com/OpenMOSS/MOSS-TTS.git'
-$MOSS_COMMIT = '934d6826b084c46a0d033402174d5f8ac4ed2519'
-$MAIN_TORCH  = '2.9.1'   # the main venv and MOSS (which asks for 2.9.0)
+$MAIN_TORCH  = '2.9.1'   # the main venv (server and checkers)
 
 function Step ($m) { Write-Host "`n==> $m" -ForegroundColor Cyan }
 function Ok   ($m) { Write-Host "    $m"   -ForegroundColor Green }
@@ -115,7 +114,6 @@ if (-not $SkipModels -and -not $AcceptModelLicenses) {
                                Stability AI. You own the sounds you make.
                                https://huggingface.co/stabilityai/stable-audio-3-small-sfx
                                (gated: accept it there; its text encoder is under the Gemma Terms)
-    MOSS-SoundEffect v2.0      Apache-2.0
     CLAP, MiDashengLM          Apache-2.0 (scoring; the optional captioner)
     Audiobox Aesthetics        CC-BY-4.0 (scoring)
 
@@ -150,7 +148,7 @@ $drive = Get-PSDrive -Name ($RepoRoot.Substring(0, 1)) -ErrorAction SilentlyCont
 if ($drive) {
     $freeGB = [math]::Round($drive.Free / 1GB, 1)
     Ok "$freeGB GB free"
-    if ($freeGB -lt 40) { Warn 'Under 40 GB free. Weights are ~16 GB, the three venvs ~17 GB, plus pip cache.' }
+    if ($freeGB -lt 25) { Warn 'Under 25 GB free. Weights are ~4.5 GB, the two venvs ~12 GB, plus pip cache.' }
 }
 
 # --- engine code ----------------------------------------------------------
@@ -180,11 +178,8 @@ function Clone-Pinned ($url, $dest, $commit, $sparse) {
 }
 
 $sa3Code  = Join-Path $RepoRoot 'engine\stable-audio-3'
-$mossCode = Join-Path $RepoRoot 'engine\MOSS-TTS'
 Step "Stable Audio 3 inference code (engine\stable-audio-3)"
 Clone-Pinned $SA3_REPO $sa3Code $SA3_COMMIT $null
-Step "MOSS-SoundEffect v2 inference code (engine\MOSS-TTS, just moss_soundeffect_v2)"
-Clone-Pinned $MOSS_REPO $mossCode $MOSS_COMMIT 'moss_soundeffect_v2'
 
 # --- venvs ------------------------------------------------------------------
 function Ensure-Venv ($name, $torch) {
@@ -233,25 +228,13 @@ if ($LASTEXITCODE -ne 0) { Fail 'stable-audio-3 dependency install failed' }
 if ((Probe $sa3.Py @('-W', 'ignore', '-c', 'import stable_audio_3')).Code -ne 0) { Fail 'stable_audio_3 does not import' }
 Check-Torch $sa3.Py '.venv-sa3'
 
-Step 'MOSS-SoundEffect environment (.venv-moss)'
-$moss = Ensure-Venv '.venv-moss' $MAIN_TORCH
-# --no-deps: its metadata pins torch 2.9.0 and numpy 1.26 (no wheels for Python 3.13).
-& $moss.Py -m pip install --quiet @pipFlags --no-deps -e (Join-Path $mossCode 'moss_soundeffect_v2')
-if ($LASTEXITCODE -ne 0) { Fail 'moss-soundeffect-v2 install failed' }
-# --no-warn-conflicts: pip would otherwise print a harmless 'ERROR' about the demo-only
-# packages (gradio, imageio...) and exact pins this repo deliberately doesn't install.
-& $moss.Py -m pip install --quiet --no-warn-conflicts @pipFlags -c $moss.Constraints -r (Join-Path $RepoRoot 'requirements-moss.txt')
-if ($LASTEXITCODE -ne 0) { Fail 'MOSS dependency install failed' }
-if ((Probe $moss.Py @('-W', 'ignore', '-c', 'import moss_soundeffect_v2')).Code -ne 0) { Fail 'moss_soundeffect_v2 does not import' }
-Check-Torch $moss.Py '.venv-moss'
-
 # --- weights --------------------------------------------------------------
 $modelsOk = $true
 if ($SkipModels) {
     Step 'Skipping model download (-SkipModels)'
     Note "Fetch them later with:  & `"$($main.Py)`" scripts\download_models.py --accept-licenses"
 } else {
-    $gb = if ($WithCaptioner) { '~18.7' } else { '~16' }
+    $gb = if ($WithCaptioner) { '~7.3' } else { '~4.5' }
     Step "Model weights ($gb GB, checksum-verified)"
     Note 'Resumable - if this is interrupted, just re-run install.ps1.'
     Note 'Stable Audio 3 is gated: accept its licence on Hugging Face and log in first'
@@ -296,8 +279,8 @@ Write-Host @"
   Or from a script:   .venv\Scripts\python.exe scripts\sfx.py "sword hit" --out <folder>
                       (starts the server in its own window if it isn't running)
 
-  Stable Audio 3 is under the Stability AI Community License; MOSS-SoundEffect is
-  Apache-2.0. See LICENSE-MODELS.md.
+  Stable Audio 3 is under the Stability AI Community License: see LICENSE-MODELS.md
+  for what that means for the sounds you make.
 
 "@ -ForegroundColor Green
 if (-not $modelsOk) { exit 1 }

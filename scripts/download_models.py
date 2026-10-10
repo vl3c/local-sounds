@@ -46,7 +46,6 @@ LICENSES = """
                                Stability AI. You own the sounds you make.
                                https://huggingface.co/stabilityai/stable-audio-3-small-sfx
                                (its text encoder comes under the Gemma Terms of Use)
-    MOSS-SoundEffect v2.0      Apache-2.0
     CLAP larger_clap_general   Apache-2.0 (scores takes)
     Audiobox Aesthetics        CC-BY-4.0 (scores takes)
     MiDashengLM 0.6B           Apache-2.0 (the optional captioner)

@@ -37,10 +37,10 @@ def test_a_cue_sheet_is_checked_like_the_command_line(tmp_path):
 
 
 def test_a_cue_overrides_the_command_line_which_overrides_the_defaults(tmp_path):
-    p = sheet(tmp_path, {"defaults": {"engine": "moss", "n": 2, "out": "sfx"},
-                         "cues": [{"text": "a"}, {"text": "b", "engine": "moss"}]})
-    a, b = (c["args"] for c in cli.load_cues(p, {"engine": "sa3"})[0])
-    assert (a.engine, a.n, b.engine) == ("sa3", 2, "moss")
+    p = sheet(tmp_path, {"defaults": {"reverb": "hall", "n": 2, "out": "sfx"},
+                         "cues": [{"text": "a"}, {"text": "b", "reverb": "hall"}]})
+    a, b = (c["args"] for c in cli.load_cues(p, {"reverb": "room"})[0])
+    assert (a.reverb, a.n, b.reverb) == ("room", 2, "hall")
 
 
 @pytest.mark.parametrize("cues, message", [
@@ -48,7 +48,8 @@ def test_a_cue_overrides_the_command_line_which_overrides_the_defaults(tmp_path)
     ([{"text": "a"}, {"text": "a"}], "already used"),
     ([{"text": "a", "volume": 3}], "unknown option"),
     ([{"text": "a", "duration": "long"}], "duration"),
-    ([{"text": "a", "engine": "cloud"}], "engine"),
+    ([{"text": "a", "engine": "moss"}], "engine"),        # removed engines are refused too
+    ([{"text": "a", "negative": "music"}], "unknown option"),
     ([{"id": "a", "text": "a", "name": "Bad Name"}], "letters and digits"),
     ([{"text": "a", "id": "no spaces"}], "an id takes"),
     ([{"text": "a", "like": "@b"}, {"text": "b"}], "earlier cue"),
@@ -70,8 +71,8 @@ def test_a_cue_sheet_needs_somewhere_to_deliver(tmp_path):
 
 def test_command_line_options_apply_to_every_cue():
     ap = cli.build_parser()
-    a = ap.parse_args(["--batch", "x.json", "--engine", "moss", "--no-check", "--out", "o"])
-    assert cli.explicit_options(ap, a) == {"engine": "moss", "check": False, "out": "o"}
+    a = ap.parse_args(["--batch", "x.json", "--reverb", "room", "--no-check", "--out", "o"])
+    assert cli.explicit_options(ap, a) == {"reverb": "room", "check": False, "out": "o"}
 
 
 # --------------------------------------------------------------------------- running a sheet

@@ -119,8 +119,8 @@ dialog::backdrop { background:rgba(0,0,0,.35); }
     <summary id="advSum">Advanced</summary>
     <div class="fullprompt" id="fullprompt"></div>
     <div class="row">
-      <div><label>Engine</label><select id="engine" data-tip="Fast: Stable Audio 3 Small-SFX, about half a second a take (it ignores 'Avoid'). Slow: MOSS-SoundEffect v2, about 13 s a take, 48 kHz mono, uses 'Avoid'.">
-        <option value="sa3">Fast (Stable Audio 3)</option><option value="moss">Slow (MOSS v2)</option></select></div>
+      <div id="engineBox" hidden><label>Engine</label><select id="engine" data-tip="The model that makes the takes (only shown when more than one is installed).">
+        <option value="sa3">Stable Audio 3 Small-SFX</option></select></div>
       <div><label>Category</label><select id="category" data-tip="The wording recipe and the file-name category. Auto picks it from your words."><option value="">auto</option></select></div>
     </div>
     <div class="row3">
@@ -130,10 +130,8 @@ dialog::backdrop { background:rgba(0,0,0,.35); }
     </div>
     <div class="row">
       <div><label>Reverb</label><select id="reverb" data-tip="Dry by default: your mix adds the space. room: a small room. hall: a medium hall."><option>none</option><option>room</option><option>hall</option></select></div>
-      <div><label>Steps</label><input id="steps" type="number" min="1" max="250" placeholder="auto" data-tip="Sampling steps. Auto: 8 for Fast, 100 for Slow."></div>
+      <div><label>Steps</label><input id="steps" type="number" min="1" max="250" placeholder="auto" data-tip="Sampling steps. Auto: the engine's own (8 for Stable Audio 3; more rarely helps)."></div>
     </div>
-    <label>Avoid (Slow engine only)</label>
-    <input id="negative" placeholder="auto: music, speech, noise, reverb..." data-tip="What the Slow engine should steer away from. The Fast engine ignores it.">
     <label class="check" data-tip="Send the text exactly as written, without the added wording (envelope, 'close-mic, dry')."><input type="checkbox" id="raw"> Send my words exactly (no auto-wording)</label>
     <label class="check" data-tip="Score how well each take matches your words, and its production quality. A few seconds slower; the basic checks always run."><input type="checkbox" id="check"> Score match and quality</label>
     <h2>My defaults</h2>
@@ -236,13 +234,13 @@ $("fps").addEventListener("input", () => { updateAlignLabel(); countAdvanced(); 
 function applySettings(eff) {
   $("engine").value = eff.engine; $("n").value = eff.n; $("seed").value = eff.seed ?? "";
   $("fps").value = eff.fps; $("reverb").value = eff.reverb; $("steps").value = eff.steps ?? "";
-  $("negative").value = eff.negative ?? ""; $("raw").checked = !!eff.raw; $("check").checked = !!eff.check;
+  $("raw").checked = !!eff.raw; $("check").checked = !!eff.check;
   $("category").value = "";
   updateAlignLabel(); countAdvanced();
 }
 function panelSettings() {
-  return {engine: $("engine").value, n: num("n"), seed: num("seed"), fps: num("fps"), reverb: $("reverb").value,
-          steps: num("steps"), negative: $("negative").value.trim() || null, raw: $("raw").checked, check: $("check").checked};
+  return {engine: $("engine").value || null, n: num("n"), seed: num("seed"), fps: num("fps"), reverb: $("reverb").value,
+          steps: num("steps"), raw: $("raw").checked, check: $("check").checked};
 }
 // "Advanced (2 changed)": a hidden override is never invisible.
 function countAdvanced() {
@@ -286,17 +284,16 @@ function preview() {
 // ---------------------------------------------------------------- generate
 async function generate() {
   const text = $("text").value.trim(); if (!text) { msg("Describe a sound first."); return; }
-  const body = {text, engine: $("engine").value, raw: $("raw").checked, check: $("check").checked, reverb: $("reverb").value};
+  const body = {text, engine: $("engine").value || undefined, raw: $("raw").checked, check: $("check").checked, reverb: $("reverb").value};
   for (const k of ["duration", "n", "fps", "align_frame", "steps"]) { const v = num(k); if (v !== null) body[k] = v; }
   const seed = $("seed").value.trim(); body.seed = seed === "" ? null : Number(seed);
   if ($("category").value) body.category = $("category").value;
   if (mode) body.mode = mode;
   if (body.mode && body.mode !== "oneshot") delete body.align_frame;
-  if ($("negative").value.trim()) body.negative = $("negative").value.trim();
   if (like) body.like = like.ref;
-  const n = body.n || settings?.effective?.n || 4, slow = body.engine === "moss", t0 = Date.now();
-  $("result").innerHTML = `<div class="card working" id="working">Generating ${n} takes with the ${slow ? "Slow" : "Fast"} engine… <span id="elapsed">0</span> s
-    <div class="small">${slow ? "about 13 s a take" : "usually a few seconds in all"}</div></div>`;
+  const n = body.n || settings?.effective?.n || 4, t0 = Date.now();
+  $("result").innerHTML = `<div class="card working" id="working">Generating ${n} takes… <span id="elapsed">0</span> s
+    <div class="small">usually a few seconds in all</div></div>`;
   const timer = setInterval(() => { const e = $("elapsed"); if (e) e.textContent = Math.round((Date.now() - t0) / 1000); }, 500);
   busy(true, "Generating…"); msg("");
   try { show(await api("/api/generate", body)); history(); if (innerWidth < 900) $("right").scrollIntoView({behavior: "smooth"}); }
@@ -330,7 +327,7 @@ function chipsFor(rec, t) {
 }
 const fileName = (rec, k) => `${rec.cat_id}_${rec.name}_v${String(k).padStart(2, "0")}.wav`;
 function card(rec, t) {
-  const isMix = rec.engine === "layer", sa3 = rec.engine === "sa3", p = t.post || {};
+  const isMix = rec.engine === "layer", p = t.post || {};
   const warns = (t.warnings || []).map(w => `<div class="warn">! ${esc(w)}</div>`).join("");
   const vars = (t.variations || []).map(v => `<div class="small">v${String(v.version).padStart(2, "0")}
       <audio controls preload="none" src="/files/${v.file}"></audio>
@@ -349,7 +346,7 @@ function card(rec, t) {
     <div class="chips">${chipsFor(rec, t)}</div>${warns}
     <div class="btns">
       <a class="button primary" href="/files/${t.files.wav}" download="${esc(fileName(rec, t.rank || 1))}" data-tip="48 kHz 24-bit WAV, named like a sound library file.">Download</a>
-      ${!isMix ? `<button data-act="like" data-ref="${t.ref}" ${sa3 ? "" : "disabled"} data-tip="${sa3 ? "Make new takes that start from this one: similar, not identical." : "Only the Fast engine (Stable Audio 3) can do this."}">More like this</button>
+      ${!isMix ? `<button data-act="like" data-ref="${t.ref}" data-tip="Make new takes that start from this one: similar, not identical.">More like this</button>
       <button data-act="vars" data-ref="${t.ref}" data-tip="5 slightly different copies (pitch, speed, tone) for repeated sounds like footsteps.">Make 5 variations</button>` : ""}
       <button data-act="layer" data-ref="${t.ref}" class="${inMix ? "on" : ""}" data-tip="Add this take to the mixer at the top, or take it out.">${inMix ? "✓ In mix" : "Add to mix"}</button>
     </div>${vars}
@@ -366,7 +363,7 @@ function show(rec) {
   current = rec;
   const p = rec.post || {}, isMix = rec.engine === "layer";
   const kept = rec.takes.filter(t => !t.rejected), rejected = rec.takes.filter(t => t.rejected);
-  const eng = {sa3: "Fast engine", moss: "Slow engine", layer: "mix"}[rec.engine] || rec.engine;
+  const eng = {sa3: "Stable Audio 3", layer: "mix"}[rec.engine] || rec.engine;
   $("result").innerHTML = `<div class="reqhead card">
       <h2>${esc(rec.text)}</h2>
       <div class="sub">${isMix ? "mix" : `${rec.takes.length} take${rec.takes.length > 1 ? "s" : ""}`} · ${eng} · ${KIND[p.mode] || p.mode}${p.duration ? ` · ${p.duration} s` : ""}</div>
@@ -387,7 +384,6 @@ function show(rec) {
       <details><summary>Request details</summary>
         <div class="details-body">${esc(rec.cat_id)}_${esc(rec.name)} · ${esc(rec.id)}${rec.gen_s !== undefined ? ` · made in ${rec.gen_s} s, checked in ${rec.score_s} s` : ""}</div>
         <div class="details-body">${isMix ? "layers: " : "sent: "}${esc(rec.prompt)}</div>
-        ${rec.negative ? `<div class="details-body">avoid: ${esc(rec.negative)}${(rec.ignored || []).includes("negative") ? " (ignored by this engine)" : ""}</div>` : ""}
         <div class="btns"><button class="link" id="pp_del">Delete these takes…</button></div>
       </details>
     </div>
@@ -608,12 +604,17 @@ async function status() {
   try {
     const h = await api("/api/health");
     s.textContent = h.busy ? "Busy" : "Ready"; s.className = h.busy ? "busy" : "ready";
-    s.dataset.tip = `Fast engine: ${h.engines.sa3 ? "loaded" : "not loaded yet"}. Slow engine: ${h.engines.moss ? "loaded" : "not loaded yet (loads on first use, ~75 s)"}. GPU memory ${h.vram_used_gb} of ${h.vram_total_gb} GB.`;
+    const engs = Object.entries(h.engines).map(([k, on]) => `${k}: ${on ? "loaded" : "not loaded yet (loads on first use)"}`).join(". ");
+    s.dataset.tip = `${engs}. GPU memory ${h.vram_used_gb} of ${h.vram_total_gb} GB.`;
   } catch (e) { s.textContent = "Server not reachable"; s.className = "down"; s.dataset.tip = "Start it with start.cmd."; }
 }
 (async () => {
   try {
     for (const c of await api("/api/categories")) $("category").insertAdjacentHTML("beforeend", `<option value="${c.key}">${c.key.replace(/-/g, " ")}</option>`);
+    // The engine picker lists the installed engines, and only shows when there's a choice.
+    const engines = Object.entries(await api("/api/engines")).filter(([, e]) => e.installed);
+    if (engines.length) $("engine").innerHTML = engines.map(([k, e]) => `<option value="${k}">${esc(e.label)}</option>`).join("");
+    $("engineBox").hidden = engines.length < 2;
     settings = await api("/api/settings"); applySettings(settings.effective);
   } catch (e) { msg(e.message); }
   setMode(""); status(); history(); setInterval(status, 5000);

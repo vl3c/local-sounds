@@ -24,22 +24,6 @@
       ]
     },
     {
-      "name": "moss-sfx-v2",
-      "repo": "OpenMOSS-Team/MOSS-SoundEffect-v2.0",
-      "revision": "e35df4d82fbe87fcd5d14e5d100e349c0c3c076d",
-      "role": "engine: MOSS-SoundEffect v2.0 (48 kHz mono, up to 30 s)",
-      "licence": "Apache-2.0",
-      "gb": 11.3,
-      "files": [
-        "model_index.json",
-        "transformer/*",
-        "text_encoder/*",
-        "vae/*",
-        "tokenizer/*",
-        "scheduler/*"
-      ]
-    },
-    {
       "name": "clap",
       "repo": "laion/larger_clap_general",
       "revision": "ada0c23a36c4e8582805bb38fec3905903f18b41",
