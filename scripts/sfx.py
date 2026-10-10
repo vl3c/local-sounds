@@ -451,7 +451,7 @@ def build_parser(cls=argparse.ArgumentParser) -> argparse.ArgumentParser:
     g.add_argument("--n", type=int, help="takes to make and rank (best-of-N; default 4)")
     g.add_argument("--seed", help="start seed (takes use seed, seed+1, ...), or 'random' (the default)")
     g.add_argument("--seeds", help="exact seeds, comma-separated (e.g. to remake one take: --seeds 1234 --n 1)")
-    g.add_argument("--engine", choices=["sa3"], help="sa3 (Stable Audio 3 Small-SFX, the only engine now); "
+    g.add_argument("--engine", choices=["sa3", "medium"], help="sa3 (Stable Audio 3 Small-SFX) or medium (SA3 Medium, on trial); "
                    "default: the user's default")
     g.add_argument("--category", help="force a recipe/category (see --categories); default: detected from the text")
     g.add_argument("--raw", action="store_true", default=None, help="send the text as written, no recipe")

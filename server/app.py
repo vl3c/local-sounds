@@ -101,6 +101,9 @@ _file_lock = threading.Lock()  # settings and votes: small files that mustn't wa
 ENGINES = {
     "sa3": {"venv": ".venv-sa3", "script": "sa3_worker.py", "weights": "sa3-small-sfx/model.safetensors",
             "label": "Stable Audio 3 Small-SFX"},
+    # Trial: Stable Audio 3 Medium (the general model: music, stems and SFX), same venv and worker.
+    "medium": {"venv": ".venv-sa3", "script": "sa3_worker.py", "args": ["medium"],
+               "weights": "sa3-medium/model.safetensors", "label": "Stable Audio 3 Medium"},
 }
 
 
@@ -124,7 +127,8 @@ class Worker:
         # The worker's stderr (its logs, progress bars) goes through this process's log
         # and console filter, like everything else the server prints.
         self.proc = subprocess.Popen(
-            [str(REPO / e["venv"] / "Scripts" / "python.exe"), str(Path(__file__).parent / "workers" / e["script"])],
+            [str(REPO / e["venv"] / "Scripts" / "python.exe"), str(Path(__file__).parent / "workers" / e["script"]),
+             *e.get("args", [])],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=str(REPO),
             text=True, encoding="utf-8", errors="replace", bufsize=1)
         # Reader threads, so a hung worker times out instead of holding _lock forever,
@@ -272,7 +276,7 @@ Mode = Literal["oneshot", "ambience", "loop"]
 class Settings(BaseModel):
     """What can be saved. Omitted keys fall back to the repo defaults; seed null = random."""
     model_config = {"extra": "forbid"}
-    engine: Literal["sa3"] | None = None
+    engine: Literal["sa3", "medium"] | None = None
     n: int | None = Field(None, ge=1, le=16)
     seed: int | None = Field(None, ge=0, lt=2**31)
     steps: int | None = Field(None, ge=1, le=250)
@@ -356,7 +360,7 @@ class GenReq(PostFields):
     n: int | None = Field(None, ge=1, le=16)
     seed: int | None = Field(None, ge=0, lt=2**31)  # omitted: the saved default (random unless saved); null: random
     seeds: list[int] | None = Field(None, max_length=16)
-    engine: Literal["sa3"] | None = None
+    engine: Literal["sa3", "medium"] | None = None
     steps: int | None = Field(None, ge=1, le=250)
     like: str | None = None                         # "<request id>:<seed>": more like that take
     like_strength: float | None = Field(None, ge=0.05, le=1.0)
