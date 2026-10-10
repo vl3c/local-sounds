@@ -5,7 +5,7 @@ rem
 rem   start.cmd                 the server opens in its own window and this returns at once;
 rem                             the page opens in your browser once it's ready
 rem   start.cmd --no-browser    the same without opening the page (what agents use)
-rem   start.cmd --engines sa3   start these engines now (default: just the default one; any
+rem   start.cmd --engines sa3,medium   start these engines now (default: just the default one; any
 rem                             other starts on its first request)
 rem
 rem The server only ever runs in that window, so it can't be left running out of sight: it
@@ -39,7 +39,8 @@ if /i "%~1"=="--in-window"  (set "INWIN=1" & shift /1 & goto args)
 rem cmd splits "a,b" at the comma, so engine names are collected wherever they appear.
 if /i "%~1"=="--engines"    (shift /1 & goto args)
 if /i "%~1"=="sa3"          (set "ENG=%ENG%,sa3" & shift /1 & goto args)
-echo Unknown option "%~1". Use:  start.cmd [--no-browser] [--engines sa3]
+if /i "%~1"=="medium"       (set "ENG=%ENG%,medium" & shift /1 & goto args)
+echo Unknown option "%~1". Use:  start.cmd [--no-browser] [--engines sa3,medium]
 exit /b 2
 :argsdone
 if defined ENG set "EXTRA=--engines %ENG:~1%"
