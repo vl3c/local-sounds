@@ -336,7 +336,27 @@ vote by ear on each prompt's best take per engine.
 | Time per take | 0.3 s | 13.3 s |
 
 The automatic scores preferred moss on several impacts that the ear gave to sa3: CLAP ranks
-takes of one prompt, it doesn't pick engines. To compare a new engine, run
+takes of one prompt, it doesn't pick engines.
+
+**Could one model do sound effects and music?** Stable Audio 3 Medium is Stability's general
+model (music, stems and SFX) and beats Small-SFX on SFX in Stability's own paper, so it was
+tried as the only engine, on the same 22 prompts and seeds (October 2026, RTX 5080; Medium run
+without FlashAttention 2, through the library's chunked-SDPA path):
+
+| | sa3 (Stable Audio 3 Small-SFX) | medium (Stable Audio 3 Medium) |
+|---|---|---|
+| **Votes by ear** | **9 wins** (crate drop, punch, sword whoosh, UI confirm, snow footstep, magic, sci-fi door, dragon roar, rain) | **9 wins** (sword clash, rock fall, character zoom, UI error, gravel and wood footsteps, cartoon boing, robot power-up, small creature) |
+| Ties | 4 both good (glass shatter, cartoon pop, explosion, forest ambience) | |
+| Mean CLAP cos (all takes) | 0.374 | 0.381 |
+| Mean Audiobox PQ | 6.71 | 6.71 |
+| Rejected takes | 2 of 66 | 0 of 66 |
+| Time per take | 0.31 s | 0.43 s |
+| VRAM (model, steady) | ~2.5 GB | ~6.2 GB, more while loading |
+
+A dead heat by ear, so **Small-SFX stays the SFX engine**: as good, faster and less than half
+the memory. Medium stays the music model (in a separate tool). The automatic scores agreed
+with the ear on only 8 of the 18 decided prompts, which confirms the point above: they rank
+takes, the ear picks engines. To compare a new engine, run
 `scripts/bakeoff.py --engines sa3,<other>`; the page is at http://127.0.0.1:8191/bakeoff/.
 
 ## Notes and gotchas
