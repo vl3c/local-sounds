@@ -10,14 +10,21 @@
 
     Re-running is safe: every finished step is skipped and downloads resume.
 
-    Stable Audio 3 is gated on Hugging Face: before installing, accept its licence at
-    https://huggingface.co/stabilityai/stable-audio-3-small-sfx and run `hf auth login`
-    (or `huggingface-cli login`) yourself. This script never touches your token.
+    Stable Audio 3 is gated on Hugging Face: accept its licence at
+    https://huggingface.co/stabilityai/stable-audio-3-small-sfx and log in yourself, either
+    before installing (`hf auth login`, if you have the Hugging Face CLI) or when the installer
+    stops at that download (`.venv\Scripts\hf.exe auth login`, then re-run it). This script
+    never touches your token.
 
     Works on Windows PowerShell 5.1 and PowerShell 7+.
 
 .PARAMETER PythonVersion
     Python version for the venvs, passed to the 'py' launcher (3.12 or newer: MOSS needs it).
+
+.PARAMETER AcceptModelLicenses
+    Accept the model weights' licences (Stable Audio 3: Stability AI Community License;
+    MOSS-SoundEffect and the scorers: Apache-2.0 / CC-BY-4.0; see LICENSE-MODELS.md).
+    Required to download them; without it the installer lists them and stops.
 
 .PARAMETER ReuseModels
     The models\ folder of another local-sounds install. Its weights are hard-linked (or
@@ -31,18 +38,23 @@
     Build the environments only; fetch the weights later with scripts\download_models.py.
 
 .PARAMETER NoSkillLink
-    Don't link this folder into ~\.claude\skills\local-sounds (the Claude Code skill).
+    Don't link this folder into ~\.claude\skills\local-sounds (the Claude Code skill). The
+    link is only made when ~\.claude exists, i.e. Claude Code is installed.
 
 .EXAMPLE
-    .\install.ps1
+    .\install.ps1 -AcceptModelLicenses
 
 .EXAMPLE
-    .\install.ps1 -ReuseModels D:\old\local-sounds\models -WithCaptioner
+    .\install.ps1 -SkipModels
+
+.EXAMPLE
+    .\install.ps1 -AcceptModelLicenses -ReuseModels <another install>\models -WithCaptioner
 #>
 [CmdletBinding()]
 param(
     [string] $PythonVersion = '3.13',
     [string] $CudaIndex     = 'cu128',
+    [switch] $AcceptModelLicenses,
     [string] $ReuseModels   = '',
     [switch] $WithCaptioner,
     [switch] $SkipModels,
@@ -90,6 +102,30 @@ function LastLine ($s) { (($s -split "`r?`n") | Select-Object -Last 1).Trim() }
 
 $pipFlags = @('--disable-pip-version-check')
 if ($NoPipCache) { $pipFlags += '--no-cache-dir' }
+
+# --- licences: before anything heavy ----------------------------------------
+if (-not $SkipModels -and -not $AcceptModelLicenses) {
+    Write-Host @"
+
+  local-sounds downloads these models. Read their licences first:
+
+    Stable Audio 3 Small-SFX   Stability AI Community License: free for personal, research and
+                               non-commercial use; commercial use is free too while you (with
+                               your affiliates) make under US `$1M a year, after registering with
+                               Stability AI. You own the sounds you make.
+                               https://huggingface.co/stabilityai/stable-audio-3-small-sfx
+                               (gated: accept it there; its text encoder is under the Gemma Terms)
+    MOSS-SoundEffect v2.0      Apache-2.0
+    CLAP, MiDashengLM          Apache-2.0 (scoring; the optional captioner)
+    Audiobox Aesthetics        CC-BY-4.0 (scoring)
+
+  This repo's own code is MIT; LICENSE-MODELS.md says what the licences mean for you. To
+  accept them and install, re-run with -AcceptModelLicenses (or -SkipModels to set up
+  without weights).
+
+"@ -ForegroundColor Yellow
+    exit 1
+}
 
 # --- prerequisites --------------------------------------------------------
 Step 'Checking prerequisites'
@@ -213,13 +249,14 @@ Check-Torch $moss.Py '.venv-moss'
 $modelsOk = $true
 if ($SkipModels) {
     Step 'Skipping model download (-SkipModels)'
-    Note "Fetch them later with:  & `"$($main.Py)`" scripts\download_models.py"
+    Note "Fetch them later with:  & `"$($main.Py)`" scripts\download_models.py --accept-licenses"
 } else {
     $gb = if ($WithCaptioner) { '~18.7' } else { '~16' }
     Step "Model weights ($gb GB, checksum-verified)"
     Note 'Resumable - if this is interrupted, just re-run install.ps1.'
-    Note 'Stable Audio 3 is gated: accept its licence on Hugging Face and run `hf auth login` first.'
-    $dlArgs = @((Join-Path $RepoRoot 'scripts\download_models.py'))
+    Note 'Stable Audio 3 is gated: accept its licence on Hugging Face and log in first'
+    Note "(  & `"$(Join-Path (Split-Path $main.Py) 'hf.exe')`" auth login  ), then re-run this."
+    $dlArgs = @((Join-Path $RepoRoot 'scripts\download_models.py'), '--accept-licenses')
     if ($WithCaptioner) { $dlArgs += '--with-optional' }
     if ($ReuseModels) {
         if (-not (Test-Path $ReuseModels)) { Fail "-ReuseModels: $ReuseModels does not exist" }
@@ -233,7 +270,7 @@ if ($SkipModels) {
 }
 
 # --- Claude Code skill ------------------------------------------------------
-if (-not $NoSkillLink) {
+if (-not $NoSkillLink -and (Test-Path (Join-Path $env:USERPROFILE '.claude'))) {
     Step 'Claude Code skill (~\.claude\skills\local-sounds)'
     $skills = Join-Path $env:USERPROFILE '.claude\skills'
     $link = Join-Path $skills 'local-sounds'
@@ -256,7 +293,8 @@ Write-Host @"
 
   Start it with:      .\start.cmd
   Then open:          http://127.0.0.1:8191/
-  Agents use:         python scripts\sfx.py "sword hit" --out <folder>
+  Or from a script:   .venv\Scripts\python.exe scripts\sfx.py "sword hit" --out <folder>
+                      (starts the server in its own window if it isn't running)
 
   Stable Audio 3 is under the Stability AI Community License; MOSS-SoundEffect is
   Apache-2.0. See LICENSE-MODELS.md.

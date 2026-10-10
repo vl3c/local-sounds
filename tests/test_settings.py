@@ -137,7 +137,8 @@ def test_variations_and_layers(app):
     assert [x["version"] for x in v["variations"]] == [1, 2, 3, 4]
     assert all((app.OUTPUT / RID / x["wav"]).is_file() for x in v["variations"])
     mix = app.make_layer(app.LayerReq(layers=[app.LayerItem(take=f"{RID}:1"),
-                                              app.LayerItem(take=f"{RID}:2", gain_db=-6, offset_frames=3)]))
+                                              app.LayerItem(take=f"{RID}:2", gain_db=-6, offset_frames=3)],
+                                      check=False))  # no CLAP / Audiobox weights in tests
     assert mix["takes"][0]["post"]["channels"] == 1 and len(mix["takes"]) == 1
 
 
@@ -232,7 +233,7 @@ def test_reprocess_recomputes_signal_for_every_take(app, monkeypatch):
 def test_a_layered_mix_cant_be_reprocessed(app):
     from fastapi import HTTPException
     make_request(app)
-    mix = app.make_layer(app.LayerReq(layers=[app.LayerItem(take=f"{RID}:1")]))
+    mix = app.make_layer(app.LayerReq(layers=[app.LayerItem(take=f"{RID}:1")], check=False))
     assert "length_frames" in mix["takes"][0]["post"]
     with pytest.raises(HTTPException) as e:
         app.reprocess(app.TakeReq(take=mix["takes"][0]["ref"], reverb="hall"))
@@ -242,7 +243,7 @@ def test_a_layered_mix_cant_be_reprocessed(app):
 def test_layer_fps_defaults_to_the_saved_one(app):
     make_request(app)
     app.save_settings(app.Settings(fps=30))
-    mix = app.make_layer(app.LayerReq(layers=[app.LayerItem(take=f"{RID}:1")]))
+    mix = app.make_layer(app.LayerReq(layers=[app.LayerItem(take=f"{RID}:1")], check=False))
     assert app.load_request(mix["id"])["post"]["fps"] == 30
 
 
