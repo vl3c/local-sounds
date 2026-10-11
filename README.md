@@ -5,8 +5,8 @@ people) to call. Ask for one sound and a length; get back clean, checked, frame-
 the hit exactly on a frame, loops that loop, round-robin variations, layers, and names a
 sound library would use (`METLImpt_SwordHit_v01.wav`).
 
-It runs an open-weight text-to-audio model on your own GPU, **Stable Audio 3 Small-SFX**,
-makes several takes per request, and judges each one automatically, the SFX equivalent of a
+It runs an open-weight text-to-audio model on your own GPU (currently Stable Audio 3
+Small-SFX), makes several takes per request, and judges each one automatically, the SFX equivalent of a
 Whisper check: signal checks, a CLAP prompt-match score, Meta's Audiobox Aesthetics quality
 score, and a spectrogram with frame gridlines. No accounts, no cloud: prompts and audio never
 leave the machine. Sound effects only, not music or speech.
